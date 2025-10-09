@@ -753,9 +753,11 @@
             "稳定王": { condition: (stats) => stats.positionRates[3] <= 0.1 && stats.totalGames >= 20 },
             "逆转王": { condition: (stats) => stats.positionRates[0] >= 0.3 && stats.positionRates[3] >= 0.2 },
             "新人王": { condition: (stats) => stats.totalGames <= 5 && stats.averagePoints > 0 },
-            "常胜将军": { condition: (stats) => stats.positionRates[0] + stats.positionRates[1] >= 0.7 },
+            "常胜将军": { condition: (stats) => stats.positionRates[0] + stats.positionRates[1] >= 0.7 && stats.totalGames >= 10 },
             "不死鸟": { condition: (stats) => stats.positionRates[3] <= 0.05 && stats.totalGames >= 10 },
             "飞人专家": { condition: (stats) => stats.flyOutRate >= 0.2 && stats.totalGames >= 10 },
+            "避四专家": { condition: (stats) => stats.positionRates[3] <= 0.1 && stats.totalGames >= 20 },
+            "常连客": { condition: (stats) => stats.totalGames >= 100 },
             "生存大师": { condition: (stats) => stats.beFlownRate <= 0.05 && stats.totalGames >= 15 }
         };
 
