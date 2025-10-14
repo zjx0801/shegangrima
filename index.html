@@ -748,6 +748,20 @@
 
         // 称号系统
         const titles = {
+             "天鳳": {
+                description: "总积分排名第一的巅峰玩家",
+                evaluate: (playersStats) => {
+                    const eligiblePlayers = playersStats.filter(p => p.stats.totalGames >= 10);
+                    if (eligiblePlayers.length === 0) return null;
+                    
+                    const sortedByTotalPoints = [...eligiblePlayers].sort((a, b) => 
+                        b.stats.totalPoints - a.stats.totalPoints
+                    );
+                    
+                    return sortedByTotalPoints[0].stats.totalPoints > 0 ? sortedByTotalPoints[0] : null;
+                },
+                level: "legendary"
+            },
             "龙王": { condition: (stats) => stats.averagePosition <= 1.5 && stats.totalGames >= 10 },
             "雀圣": { condition: (stats) => stats.positionRates[0] >= 0.4 && stats.totalGames >= 15 },
             "稳定王": { condition: (stats) => stats.positionRates[3] <= 0.1 && stats.totalGames >= 20 },
