@@ -831,7 +831,7 @@
             </ul>
         </div>
     </div>
-</div>  <!-- 这里闭合玩家统计tab-content -->
+</div>  <!-- 这是players-tab的正确闭合位置 -->
         <div class="tab-content" id="analysis-tab">
             <div class="card">
                 <h2 class="card-title">玩家对局分析</h2>
@@ -966,6 +966,43 @@
                     <input type="text" id="season-name" placeholder="例如：2024夏季联赛" required>
                 </div>
                 
+<!-- 称号详情模态框 -->
+   <div class="modal" id="title-detail-modal">
+       <div class="modal-content">
+           <span class="close-modal" id="close-title-modal">&times;</span>
+           
+           <div class="title-detail-header">
+               <div class="title-detail-icon">🏆</div>
+               <div>
+                   <div class="title-detail-name" id="title-detail-name">称号名称</div>
+                   <div class="title-detail-description" id="title-detail-description">称号描述</div>
+               </div>
+           </div>
+           
+           <div class="title-detail-requirements" id="title-detail-requirements">
+               <!-- 详细条件将通过JavaScript动态添加 -->
+           </div>
+           
+           <div class="title-current-stats" id="title-current-stats">
+               <h4>当前玩家进度</h4>
+               <p>请选择玩家查看进度...</p>
+           </div>
+           
+           <div class="form-group" style="margin-top: 20px;">
+               <label for="title-player-check">查看玩家进度</label>
+               <select id="title-player-check" style="width: 100%; padding: 10px; margin-top: 5px;">
+                   <option value="">请选择玩家</option>
+                   <!-- 玩家选项将通过JavaScript动态添加 -->
+               </select>
+           </div>
+           
+           <div class="btn-group" style="margin-top: 20px;">
+               <button class="btn-success" id="check-title-progress">查看进度</button>
+               <button class="btn-danger" id="close-title-detail">关闭</button>
+           </div>
+       </div>
+   </div>
+
                 <div class="form-group">
                     <label for="season-start">开始日期</label>
                     <input type="date" id="season-start" required>
@@ -996,42 +1033,7 @@
             "张锦轩", "邓洋", "寻接发", "易根玲", "黄若雯", 
             "黄相阳", "黄雨露", "张杰斌", "周盼", "胡锦鸿"
         ];
-<!-- 称号详情模态框 -->
-<div class="modal" id="title-detail-modal">
-    <div class="modal-content">
-        <span class="close-modal" id="close-title-modal">&times;</span>
-        
-        <div class="title-detail-header">
-            <div class="title-detail-icon">🏆</div>
-            <div>
-                <div class="title-detail-name" id="title-detail-name">称号名称</div>
-                <div class="title-detail-description" id="title-detail-description">称号描述</div>
-            </div>
-        </div>
-        
-        <div class="title-detail-requirements" id="title-detail-requirements">
-            <!-- 详细条件将通过JavaScript动态添加 -->
-        </div>
-        
-        <div class="title-current-stats" id="title-current-stats">
-            <h4>当前玩家进度</h4>
-            <p>请选择玩家查看进度...</p>
-        </div>
-        
-        <div class="form-group" style="margin-top: 20px;">
-            <label for="title-player-check">查看玩家进度</label>
-            <select id="title-player-check" style="width: 100%; padding: 10px; margin-top: 5px;">
-                <option value="">请选择玩家</option>
-                <!-- 玩家选项将通过JavaScript动态添加 -->
-            </select>
-        </div>
-        
-        <div class="btn-group" style="margin-top: 20px;">
-            <button class="btn-success" id="check-title-progress">查看进度</button>
-            <button class="btn-danger" id="close-title-detail">关闭</button>
-        </div>
-    </div>
-</div>
+
         // 修改积分计算规则
 const positionPoints = {
     "个人战": {1: 40, 2: 20, 3: -10, 4: -30},
