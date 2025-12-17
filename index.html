@@ -365,22 +365,6 @@
             animation: glow 2s infinite;
         }
         
-        .player-management {
-            margin-top: 20px;
-        }
-        
-        .player-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .player-item:last-child {
-            border-bottom: none;
-        }
-        
         @keyframes glow {
             0% { box-shadow: 0 0 5px #feca57; }
             50% { box-shadow: 0 0 15px #ff9ff3; }
@@ -806,30 +790,29 @@
             </div>
         </div>
         
-        <div class="tab-content" id="players-tab">
-            <div class="card">
-                <h2 class="card-title">玩家统计概览</h2>
-                <div class="form-group">
-                    <label for="player-season-filter">赛季筛选</label>
-                    <select id="player-season-filter">
-                        <option value="all">全部赛季</option>
-                        <!-- 赛季选项将通过JavaScript动态添加 -->
-                    </select>
-                </div>
-                <div class="player-list" id="players-stats">
-                    <!-- 玩家统计将通过JavaScript动态添加 -->
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2 class="card-title">详细统计数据</h2>
-                <div class="stats-grid" id="detailed-stats">
-                    <!-- 详细统计数据将通过JavaScript动态添加 -->
-                </div>
-            </div>
+<div class="tab-content" id="players-tab">
+    <div class="card">
+        <h2 class="card-title">玩家统计概览</h2>
+        <div class="form-group">
+            <label for="player-season-filter">赛季筛选</label>
+            <select id="player-season-filter">
+                <option value="all">全部赛季</option>
+                <!-- 赛季选项将通过JavaScript动态添加 -->
+            </select>
         </div>
-        
-<!-- 新增：称号获取条件卡片 -->
+        <div class="player-list" id="players-stats">
+            <!-- 玩家统计将通过JavaScript动态添加 -->
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2 class="card-title">详细统计数据</h2>
+        <div class="stats-grid" id="detailed-stats">
+            <!-- 详细统计数据将通过JavaScript动态添加 -->
+        </div>
+    </div>
+    
+    <!-- 新增：称号获取条件卡片 -->
     <div class="card">
         <h2 class="card-title">称号获取条件</h2>
         <p style="margin-bottom: 15px; color: #666;">以下是所有称号的获取条件，点击称号可查看详细说明</p>
@@ -848,8 +831,7 @@
             </ul>
         </div>
     </div>
-</div>
-
+</div>  <!-- 这里闭合玩家统计tab-content -->
         <div class="tab-content" id="analysis-tab">
             <div class="card">
                 <h2 class="card-title">玩家对局分析</h2>
@@ -1014,12 +996,47 @@
             "张锦轩", "邓洋", "寻接发", "易根玲", "黄若雯", 
             "黄相阳", "黄雨露", "张杰斌", "周盼", "胡锦鸿"
         ];
-
+<!-- 称号详情模态框 -->
+<div class="modal" id="title-detail-modal">
+    <div class="modal-content">
+        <span class="close-modal" id="close-title-modal">&times;</span>
+        
+        <div class="title-detail-header">
+            <div class="title-detail-icon">🏆</div>
+            <div>
+                <div class="title-detail-name" id="title-detail-name">称号名称</div>
+                <div class="title-detail-description" id="title-detail-description">称号描述</div>
+            </div>
+        </div>
+        
+        <div class="title-detail-requirements" id="title-detail-requirements">
+            <!-- 详细条件将通过JavaScript动态添加 -->
+        </div>
+        
+        <div class="title-current-stats" id="title-current-stats">
+            <h4>当前玩家进度</h4>
+            <p>请选择玩家查看进度...</p>
+        </div>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="title-player-check">查看玩家进度</label>
+            <select id="title-player-check" style="width: 100%; padding: 10px; margin-top: 5px;">
+                <option value="">请选择玩家</option>
+                <!-- 玩家选项将通过JavaScript动态添加 -->
+            </select>
+        </div>
+        
+        <div class="btn-group" style="margin-top: 20px;">
+            <button class="btn-success" id="check-title-progress">查看进度</button>
+            <button class="btn-danger" id="close-title-detail">关闭</button>
+        </div>
+    </div>
+</div>
         // 修改积分计算规则
 const positionPoints = {
     "个人战": {1: 40, 2: 20, 3: -10, 4: -30},
     "团体战": {1: 50, 2: 10, 3: -10, 4: -30},
-    "东风战": {1:25, 2: 15, 3: -5, 4: -15}  // 练习赛可以不计积分
+    "练习赛": {1:25, 2: 15, 3: -5, 4: -15}  // 练习赛可以不计积分
 };
 
 // 在计算积分的所有地方，都需要根据游戏类型获取对应的积分规则
@@ -1155,22 +1172,23 @@ function getPositionPoints(gameType) {
             lastSync: null
         };
 
-        // 初始化页面
-        document.addEventListener('DOMContentLoaded', function() {
-            initializePlayerSelects();
-            initializeSeasonSelects();
-            loadGameRecords();
-            updatePlayerStats();
-            setupEventListeners();
-            initializeAnalysisTab();
-            initializeTrendsTab();
-            loadSeasonsList();
-            loadPlayersList();
-            checkSyncStatus();
-            
-            // 初始化称号系统
-            updateAllTitles();
-        });
+      // 初始化页面
+document.addEventListener('DOMContentLoaded', function() {
+    initializePlayerSelects();
+    initializeSeasonSelects();
+    loadGameRecords();
+    updatePlayerStats();
+    setupEventListeners();
+    initializeAnalysisTab();
+    initializeTrendsTab();
+    loadSeasonsList();
+    loadPlayersList();
+    checkSyncStatus();
+    
+    // 初始化称号系统
+    updateAllTitles();
+    updateTitlesConditions(); // 新增：初始化称号条件显示
+});
 
         // 初始化玩家选择下拉框
         function initializePlayerSelects() {
