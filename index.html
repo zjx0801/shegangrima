@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>日麻战绩统计系统 - 全功能版</title>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* 样式保持不变，为了简洁省略 */
         :root {
@@ -625,6 +626,71 @@
 
 .edit-player-select {
     margin-bottom: 5px;
+}
+
+/* 雷达图相关样式 */
+.radar-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+/* 对阵统计表格优化 */
+table {
+    font-size: 0.9rem;
+}
+
+table th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+}
+
+/* 导出按钮样式 */
+.export-section {
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+/* 最近战绩符号样式 */
+.position-1, .position-4 {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    margin-right: 3px;
+    font-weight: bold;
+}
+
+.position-1 {
+    background-color: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+}
+
+.position-4 {
+    background-color: rgba(52, 152, 219, 0.2);
+    color: #3498db;
+}
+
+/* 卡片导出按钮 */
+.export-card-btn {
+    background-color: #2ecc71 !important;
+    color: white !important;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.3s;
+}
+
+.export-card-btn:hover {
+    background-color: #27ae60 !important;
 }
 
         @media (max-width: 768px) {
@@ -1377,8 +1443,29 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // 加载同步设置
             document.getElementById('sync-url').value = syncSettings.url || '';
-        }
+       
 
+// 玩家卡片导出事件（使用事件委托）
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('export-card-btn')) {
+            const playerName = e.target.getAttribute('data-player');
+            exportPlayerCard(playerName);
+        }
+    });
+    
+    // 添加整体导出按钮到玩家统计页面
+    // 注意：这个需要在页面加载完成后才能找到元素
+    setTimeout(() => {
+        const playersCardTitle = document.querySelector('#players-tab .card-title');
+        if (playersCardTitle && !document.getElementById('export-all-players')) {
+            playersCardTitle.insertAdjacentHTML('afterend', 
+                '<button id="export-all-players" class="btn-warning" style="margin-bottom: 15px;">导出所有玩家卡片</button>'
+            );
+            
+            document.getElementById('export-all-players').addEventListener('click', exportAllPlayersStats);
+        }
+    }, 500);
+}
         // 初始化赛季表单
         function initializeSeasonForm() {
             const seasonPlayers = document.getElementById('season-players');
@@ -1713,6 +1800,19 @@ function loadGameRecords() {
             }
         }
 
+// 计算玩家称号
+function calculatePlayerTitles(stats) {
+    const earnedTitles = [];
+    
+    titles.forEach(title => {
+        if (title.condition(stats)) {
+            earnedTitles.push(title.name);
+        }
+    });
+    
+    return earnedTitles;
+}
+
         // 更新玩家卡片
 function updatePlayerCards() {
     const playersStats = document.getElementById('players-stats');
@@ -1762,21 +1862,23 @@ function updatePlayerCards() {
         const rankIndex = playerStatsArray.findIndex(item => item.player === player) + 1;
         const rankBadge = rankIndex <= 3 ? `<span style="color:#e74c3c; font-weight:bold; margin-right:5px;">#${rankIndex}</span>` : '';
         
-        playerCard.innerHTML = `
-            <div class="player-name">${rankBadge}${player} ${titlesHTML}</div>
-            <div class="player-stats">
-                <div>对局数: ${stats.totalGames}</div>
-                <div><strong>总积分: ${stats.totalPoints.toFixed(2)}</strong></div>
-                <div>平均积分: ${stats.averagePoints.toFixed(2)}</div>
-                <div>平均顺位: ${stats.averagePosition.toFixed(2)}</div>
-                <div>一位率: ${(stats.positionRates[0] * 100).toFixed(1)}%</div>
-                <div>飞人率: ${(stats.flyOutRate * 100).toFixed(1)}%</div>
-                <div>被飞率: ${(stats.beFlownRate * 100).toFixed(1)}%</div>
-                <div>最高打点: ${stats.highestScore}</div>
-                ${rateBarsHTML}
-            </div>
-        `;
-        
+playerCard.innerHTML = `
+    <div class="player-name">${rankBadge}${player} ${titlesHTML}</div>
+    <div class="player-stats">
+        <div>对局数: ${stats.totalGames}</div>
+        <div><strong>总积分: ${stats.totalPoints.toFixed(2)}</strong></div>
+        <div>平均积分: ${stats.averagePoints.toFixed(2)}</div>
+        <div>平均顺位: ${stats.averagePosition.toFixed(2)}</div>
+        <div>一位率: ${(stats.positionRates[0] * 100).toFixed(1)}%</div>
+        <div>最高打点: ${stats.highestScore}</div>
+        <div>飞人率: ${(stats.flyOutRate * 100).toFixed(1)}%</div>
+        <div>被飞率: ${(stats.beFlownRate * 100).toFixed(1)}%</div>
+        <div>当前连胜: ${stats.currentWinStreak}场</div>
+        <div>最高连胜: ${stats.maxWinStreak}场</div>
+        ${rateBarsHTML}
+        <button class="btn-success export-card-btn" data-player="${player}" style="margin-top: 10px; font-size: 0.8rem; padding: 5px 10px;">导出卡片</button>
+    </div>
+`;        
         playersStats.appendChild(playerCard);
     });
 }
@@ -1816,154 +1918,284 @@ function updatePlayerCards() {
         }
 
         // 更新玩家分析
-        function updatePlayerAnalysis() {
-            const playerName = document.getElementById('analysis-player').value;
-            const seasonFilter = document.getElementById('analysis-season-filter').value;
-            
-            if (!playerName) return;
-            
-            let playerRecords = getPlayerRecords(playerName);
-            
-            // 赛季筛选
-            if (seasonFilter !== 'all') {
-                playerRecords = playerRecords.filter(record => record.seasonId === seasonFilter);
-            }
-            
-            const stats = calculatePlayerStats(playerName, playerRecords);
-            const opponentStats = calculateOpponentStats(playerName, playerRecords);
-            const playerTitles = calculatePlayerTitles(stats);
-            
-            let analysisHTML = `
-                <h3>${playerName} 的详细数据 
-                    ${playerTitles.map(title => `<span class="title-badge">${title}</span>`).join('')}
-                </h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">总对局数</div>
-                        <div class="stat-value">${stats.totalGames}</div>
+       function updatePlayerAnalysis() {
+    const playerName = document.getElementById('analysis-player').value;
+    const seasonFilter = document.getElementById('analysis-season-filter').value;
+    
+    if (!playerName) return;
+    
+    let playerRecords = getPlayerRecords(playerName);
+    
+    // 赛季筛选
+    if (seasonFilter !== 'all') {
+        playerRecords = playerRecords.filter(record => record.seasonId === seasonFilter);
+    }
+    
+    const stats = calculatePlayerStats(playerName, playerRecords);
+    const opponentStats = stats.opponentStats; // 使用新的详细对阵统计
+    const playerTitles = calculatePlayerTitles(stats);
+    
+    let analysisHTML = `
+        <h3>${playerName} 的详细数据 
+            ${playerTitles.map(title => `<span class="title-badge">${title}</span>`).join('')}
+        </h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">总对局数</div>
+                <div class="stat-value">${stats.totalGames}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">总积分</div>
+                <div class="stat-value">${stats.totalPoints.toFixed(2)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">平均顺位</div>
+                <div class="stat-value">${stats.averagePosition.toFixed(2)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">平均积分</div>
+                <div class="stat-value">${stats.averagePoints.toFixed(2)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">当前连胜</div>
+                <div class="stat-value">${stats.currentWinStreak}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">最高连胜</div>
+                <div class="stat-value">${stats.maxWinStreak}</div>
+            </div>
+        </div>
+        
+        <div class="btn-group">
+            <button id="export-analysis" class="btn-success" data-player="${playerName}">导出分析报告</button>
+            <button id="export-radar" class="btn-warning" data-player="${playerName}">导出雷达图</button>
+        </div>
+        
+        <h3>能力雷达图</h3>
+        <div class="chart-container">
+            <canvas id="radar-chart"></canvas>
+        </div>
+        
+        <h3>顺位分布</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>顺位</th>
+                    <th>次数</th>
+                    <th>比率</th>
+                    <th>图形</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    for (let i = 0; i < 4; i++) {
+        const position = i + 1;
+        const count = stats.positionCounts[i];
+        const rate = stats.positionRates[i] * 100;
+        
+        analysisHTML += `
+            <tr>
+                <td><span class="position-${position}">${position}位</span></td>
+                <td>${count}</td>
+                <td>${rate.toFixed(1)}%</td>
+                <td>
+                    <div class="rate-bars">
+                        <div class="rate-${position}" style="width: ${rate}%"></div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-label">总积分</div>
-                        <div class="stat-value">${stats.totalPoints.toFixed(2)}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">平均顺位</div>
-                        <div class="stat-value">${stats.averagePosition.toFixed(2)}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">平均积分</div>
-                        <div class="stat-value">${stats.averagePoints.toFixed(2)}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">飞人率</div>
-                        <div class="stat-value">${(stats.flyOutRate * 100).toFixed(1)}%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">被飞率</div>
-                        <div class="stat-value">${(stats.beFlownRate * 100).toFixed(1)}%</div>
-                    </div>
-                </div>
-                
-                <h3>顺位分布</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>顺位</th>
-                            <th>次数</th>
-                            <th>比率</th>
-                            <th>图形</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            for (let i = 0; i < 4; i++) {
-                const position = i + 1;
-                const count = stats.positionCounts[i];
-                const rate = stats.positionRates[i] * 100;
-                
-                analysisHTML += `
+                </td>
+            </tr>
+        `;
+    }
+    
+    analysisHTML += `
+            </tbody>
+        </table>
+        
+        <h3>详细对阵统计</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
                     <tr>
-                        <td><span class="position-${position}">${position}位</span></td>
-                        <td>${count}</td>
-                        <td>${rate.toFixed(1)}%</td>
-                        <td>
-                            <div class="rate-bars">
-                                <div class="rate-${position}" style="width: ${rate}%"></div>
-                            </div>
-                        </td>
+                        <th>对手</th>
+                        <th>对战次数</th>
+                        <th>胜场</th>
+                        <th>负场</th>
+                        <th>平局</th>
+                        <th>胜率</th>
+                        <th>平均顺位差</th>
+                        <th>平均分差</th>
+                        <th>最近战绩</th>
                     </tr>
-                `;
-            }
-            
-            analysisHTML += `
-                    </tbody>
-                </table>
-                
-                <h3>对手对战统计</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>对手</th>
-                            <th>对战次数</th>
-                            <th>胜率</th>
-                            <th>平均顺位差</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            Object.keys(opponentStats).forEach(opponent => {
-                if (opponent === playerName) return;
-                
-                const stats = opponentStats[opponent];
-                analysisHTML += `
-                    <tr>
-                        <td>${opponent}</td>
-                        <td>${stats.games}</td>
-                        <td>${(stats.winRate * 100).toFixed(1)}%</td>
-                        <td>${stats.avgPositionDiff.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-            
-            analysisHTML += `
-                    </tbody>
-                </table>
-                
-                <h3>最近对局</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>日期</th>
-                            <th>顺位</th>
-                            <th>分数</th>
-                            <th>积分</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            // 显示最近5场对局
-            const recentGames = playerRecords.slice(-5).reverse();
-            recentGames.forEach(game => {
-                analysisHTML += `
-                    <tr>
-                        <td>${game.date}</td>
-                        <td><span class="position-${game.position}">${game.position}位</span></td>
-                        <td>${game.score}</td>
-                        <td>${game.points.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-            
-            analysisHTML += `
-                    </tbody>
-                </table>
-            `;
-            
-            document.getElementById('player-analysis-content').innerHTML = analysisHTML;
+                </thead>
+                <tbody>
+    `;
+    
+    // 按对战次数排序
+    const sortedOpponents = Object.keys(opponentStats).sort((a, b) => 
+        opponentStats[b].games - opponentStats[a].games
+    );
+    
+    sortedOpponents.forEach(opponent => {
+        if (opponent === playerName) return;
+        
+        const stats = opponentStats[opponent];
+        if (stats.games === 0) return;
+        
+        // 生成最近战绩简码
+        let recentResultsHTML = "";
+        const maxRecent = Math.min(stats.recentResults.length, 5);
+        for (let i = 0; i < maxRecent; i++) {
+            const result = stats.recentResults[i];
+            const resultChar = result.win ? '✓' : '✗';
+            const resultClass = result.win ? 'position-1' : 'position-4';
+            recentResultsHTML += `<span class="${resultClass}" title="${result.date}: ${result.playerPosition}位 vs ${result.opponentPosition}位">${resultChar}</span>`;
         }
+        
+        analysisHTML += `
+            <tr>
+                <td>${opponent}</td>
+                <td>${stats.games}</td>
+                <td>${stats.wins}</td>
+                <td>${stats.losses}</td>
+                <td>${stats.draws || 0}</td>
+                <td>${(stats.winRate * 100).toFixed(1)}%</td>
+                <td>${stats.avgPositionDiff.toFixed(2)}</td>
+                <td>${stats.avgScoreDiff ? stats.avgScoreDiff.toFixed(0) : 'N/A'}</td>
+                <td>${recentResultsHTML || '无记录'}</td>
+            </tr>
+        `;
+    });
+    
+    analysisHTML += `
+                </tbody>
+            </table>
+        </div>
+        
+        <h3>最近对局</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>顺位</th>
+                    <th>分数</th>
+                    <th>积分</th>
+                    <th>胜负</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    // 显示最近10场对局
+    const recentGames = playerRecords.slice(-10).reverse();
+    recentGames.forEach(game => {
+        const winClass = game.position <= 2 ? 'position-1' : 'position-4';
+        const winText = game.position <= 2 ? '胜' : '负';
+        
+        analysisHTML += `
+            <tr>
+                <td>${game.date}</td>
+                <td><span class="position-${game.position}">${game.position}位</span></td>
+                <td>${game.score}</td>
+                <td>${game.points.toFixed(2)}</td>
+                <td><span class="${winClass}">${winText}</span></td>
+            </tr>
+        `;
+    });
+    
+    analysisHTML += `
+            </tbody>
+        </table>
+    `;
+    
+    document.getElementById('player-analysis-content').innerHTML = analysisHTML;
+    
+    // 绘制雷达图
+    drawRadarChart(playerName, stats.radarStats);
+    
+    // 添加导出按钮事件监听
+    document.getElementById('export-analysis')?.addEventListener('click', function() {
+        exportAnalysisReport(playerName);
+    });
+    
+    document.getElementById('export-radar')?.addEventListener('click', function() {
+        exportRadarChart(playerName);
+    });
+}
+
+// 新增：绘制雷达图
+function drawRadarChart(playerName, radarStats) {
+    const ctx = document.getElementById('radar-chart').getContext('2d');
+    
+    if (window.radarChart) {
+        window.radarChart.destroy();
+    }
+    
+    const radarData = {
+        labels: Object.keys(radarStats),
+        datasets: [{
+            label: playerName,
+            data: Object.values(radarStats),
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 2,
+            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+        }]
+    };
+    
+    const radarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            title: {
+                display: true,
+                text: `${playerName} 能力雷达图`,
+                font: {
+                    size: 16
+                }
+            },
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return `${context.label}: ${context.raw.toFixed(1)}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            r: {
+                angleLines: {
+                    display: true
+                },
+                suggestedMin: 0,
+                suggestedMax: 100,
+                ticks: {
+                    stepSize: 20,
+                    callback: function(value) {
+                        return value + '分';
+                    }
+                },
+                pointLabels: {
+                    font: {
+                        size: 12
+                    }
+                }
+            }
+        }
+    };
+    
+    window.radarChart = new Chart(ctx, {
+        type: 'radar',
+        data: radarData,
+        options: radarOptions
+    });
+}
 
         // 更新趋势图表
         function updateTrendCharts() {
@@ -2120,127 +2352,258 @@ function updatePlayerCards() {
 }
 
         // 计算玩家统计
-        function calculatePlayerStats(playerName, playerRecords) {
-            if (playerRecords.length === 0) {
-                return {
-                    totalGames: 0,
-                    totalPoints: 0,
-                    averagePosition: 0,
-                    averagePoints: 0,
-                    highestScore: 0,
-                    positionCounts: [0, 0, 0, 0],
-                    positionRates: [0, 0, 0, 0],
-                    flyOutRate: 0,
-                    beFlownRate: 0,
-                    flyOutCount: 0,
-                    beFlownCount: 0
-                };
+    // 修改calculatePlayerStats函数，添加连胜统计
+function calculatePlayerStats(playerName, playerRecords) {
+    if (playerRecords.length === 0) {
+        return {
+            totalGames: 0,
+            totalPoints: 0,
+            averagePosition: 0,
+            averagePoints: 0,
+            highestScore: 0,
+            positionCounts: [0, 0, 0, 0],
+            positionRates: [0, 0, 0, 0],
+            flyOutRate: 0,
+            beFlownRate: 0,
+            flyOutCount: 0,
+            beFlownCount: 0,
+            // 新增连胜统计
+            currentWinStreak: 0,
+            maxWinStreak: 0,
+            currentLoseStreak: 0,
+            maxLoseStreak: 0,
+            // 新增对阵统计基础数据
+            opponentStats: {},
+            // 新增雷达图数据
+            radarStats: {
+                攻击力: 0,
+                防守力: 0,
+                稳定性: 0,
+                成长性: 0,
+                活跃度: 0
             }
-            
-            const totalGames = playerRecords.length;
-            const totalPosition = playerRecords.reduce((sum, record) => sum + record.position, 0);
-            const totalPoints = playerRecords.reduce((sum, record) => sum + record.points, 0);
-            const highestScore = Math.max(...playerRecords.map(record => record.score));
-            
-            // 计算各顺位次数
-            const positionCounts = [0, 0, 0, 0];
-            playerRecords.forEach(record => {
-                positionCounts[record.position - 1]++;
-            });
-            
-            // 计算各顺位比率
-            const positionRates = positionCounts.map(count => count / totalGames);
-            
-            // 计算飞人/被飞统计
-            const flyOutCount = playerRecords.filter(record => record.isFlyOut).length;
-            const beFlownCount = playerRecords.filter(record => record.isBeFlown).length;
-            const flyOutRate = flyOutCount / totalGames;
-            const beFlownRate = beFlownCount / totalGames;
-            
-            return {
-                totalGames: totalGames,
-                totalPoints: totalPoints,
-                averagePosition: totalPosition / totalGames,
-                averagePoints: totalPoints / totalGames,
-                highestScore: highestScore,
-                positionCounts: positionCounts,
-                positionRates: positionRates,
-                flyOutRate: flyOutRate,
-                beFlownRate: beFlownRate,
-                flyOutCount: flyOutCount,
-                beFlownCount: beFlownCount
+        };
+    }
+    
+    const totalGames = playerRecords.length;
+    const totalPosition = playerRecords.reduce((sum, record) => sum + record.position, 0);
+    const totalPoints = playerRecords.reduce((sum, record) => sum + record.points, 0);
+    const highestScore = Math.max(...playerRecords.map(record => record.score));
+    
+    // 计算各顺位次数
+    const positionCounts = [0, 0, 0, 0];
+    playerRecords.forEach(record => {
+        positionCounts[record.position - 1]++;
+    });
+    
+    // 计算各顺位比率
+    const positionRates = positionCounts.map(count => count / totalGames);
+    
+    // 计算飞人/被飞统计
+    const flyOutCount = playerRecords.filter(record => record.isFlyOut).length;
+    const beFlownCount = playerRecords.filter(record => record.isBeFlown).length;
+    const flyOutRate = flyOutCount / totalGames;
+    const beFlownRate = beFlownCount / totalGames;
+    
+    // 计算连胜统计
+    const streakStats = calculateStreakStats(playerRecords);
+    
+    // 计算对阵统计
+    const opponentStats = calculateDetailedOpponentStats(playerName, playerRecords);
+    
+    // 计算雷达图数据
+    const radarStats = calculateRadarStats(playerName, playerRecords, {
+        totalGames,
+        positionRates,
+        averagePoints: totalPoints / totalGames,
+        beFlownRate,
+        totalPoints
+    });
+    
+    return {
+        totalGames: totalGames,
+        totalPoints: totalPoints,
+        averagePosition: totalPosition / totalGames,
+        averagePoints: totalPoints / totalGames,
+        highestScore: highestScore,
+        positionCounts: positionCounts,
+        positionRates: positionRates,
+        flyOutRate: flyOutRate,
+        beFlownRate: beFlownRate,
+        flyOutCount: flyOutCount,
+        beFlownCount: beFlownCount,
+        // 新增连胜统计
+        currentWinStreak: streakStats.currentWinStreak,
+        maxWinStreak: streakStats.maxWinStreak,
+        currentLoseStreak: streakStats.currentLoseStreak,
+        maxLoseStreak: streakStats.maxLoseStreak,
+        // 新增对阵统计
+        opponentStats: opponentStats,
+        // 新增雷达图数据
+        radarStats: radarStats
+    };
+}
+
+// 新增：计算连胜统计函数
+function calculateStreakStats(playerRecords) {
+    let currentWinStreak = 0;
+    let maxWinStreak = 0;
+    let currentLoseStreak = 0;
+    let maxLoseStreak = 0;
+    
+    // 按日期排序
+    const sortedRecords = [...playerRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    sortedRecords.forEach(record => {
+        const isWin = record.position <= 2; // 前两名算胜利
+        const isLose = record.position >= 3; // 后两名算失败
+        
+        if (isWin) {
+            currentWinStreak++;
+            currentLoseStreak = 0;
+            if (currentWinStreak > maxWinStreak) {
+                maxWinStreak = currentWinStreak;
+            }
+        } else if (isLose) {
+            currentLoseStreak++;
+            currentWinStreak = 0;
+            if (currentLoseStreak > maxLoseStreak) {
+                maxLoseStreak = currentLoseStreak;
+            }
+        } else {
+            // 平局或其他情况，重置连胜连败
+            currentWinStreak = 0;
+            currentLoseStreak = 0;
+        }
+    });
+    
+    return {
+        currentWinStreak,
+        maxWinStreak,
+        currentLoseStreak,
+        maxLoseStreak
+    };
+}
+
+// 新增：计算详细对阵统计
+function calculateDetailedOpponentStats(playerName, playerRecords) {
+    const opponentStats = {};
+    
+    // 初始化所有对手
+    players.forEach(opponent => {
+        if (opponent !== playerName) {
+            opponentStats[opponent] = {
+                games: 0,
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                totalPoints: 0,
+                avgPositionDiff: 0,
+                positionCounts: [0, 0, 0, 0],
+                // 新增：分数统计
+                totalScoreDiff: 0,
+                avgScoreDiff: 0,
+                // 新增：最近战绩
+                recentResults: []
             };
         }
-
-        // 计算玩家称号
-        function calculatePlayerTitles(stats) {
-        const earnedTitles = [];
+    });
+    
+    // 统计对战数据
+    playerRecords.forEach(record => {
+        // 获取玩家在这局中的信息
+        const playerPosition = record.position;
+        const playerScore = record.score;
         
-        titles.forEach(title => {
-            if (title.condition(stats)) {
-                earnedTitles.push(title.name);
+        // 计算对手在这局中的信息
+        record.opponents.forEach(opponentName => {
+            if (opponentStats[opponentName]) {
+                const stats = opponentStats[opponentName];
+                stats.games++;
+                stats.totalPoints += record.points;
+                
+                // 计算胜负
+                // 找到对手在这局中的排名
+                const gameRecord = gameRecords.find(g => 
+                    g.date === record.date && 
+                    g.players.includes(playerName) && 
+                    g.players.includes(opponentName)
+                );
+                
+                if (gameRecord) {
+                    const opponentIndex = gameRecord.players.indexOf(opponentName);
+                    const opponentPosition = gameRecord.playerPoints.find(p => p.player === opponentName).position;
+                    
+                    // 记录顺位
+                    stats.positionCounts[opponentPosition - 1]++;
+                    
+                    // 计算胜负
+                    if (playerPosition < opponentPosition) {
+                        stats.wins++;
+                    } else if (playerPosition > opponentPosition) {
+                        stats.losses++;
+                    } else {
+                        stats.draws++;
+                    }
+                    
+                    // 计算顺位差（越小越好）
+                    const positionDiff = opponentPosition - playerPosition; // 正数表示对手排位更靠后，即玩家获胜
+                    stats.avgPositionDiff = ((stats.avgPositionDiff * (stats.games - 1)) + positionDiff) / stats.games;
+                    
+                    // 计算分数差
+                    const opponentScore = gameRecord.scores[opponentIndex];
+                    const scoreDiff = playerScore - opponentScore;
+                    stats.totalScoreDiff += scoreDiff;
+                    stats.avgScoreDiff = stats.totalScoreDiff / stats.games;
+                    
+                    // 记录最近战绩（最多5场）
+                    const result = {
+                        date: record.date,
+                        playerPosition,
+                        opponentPosition,
+                        playerScore,
+                        opponentScore,
+                        win: playerPosition < opponentPosition
+                    };
+                    
+                    stats.recentResults.unshift(result);
+                    if (stats.recentResults.length > 5) {
+                        stats.recentResults.pop();
+                    }
+                }
             }
         });
-        
-        return earnedTitles;
-    }
-
-        // 更新所有玩家称号
-        function updateAllTitles() {
-            // 称号会在updatePlayerCards和updatePlayerAnalysis中自动计算
-            updatePlayerStats();
+    });
+    
+    // 计算胜率
+    Object.keys(opponentStats).forEach(opponent => {
+        const stats = opponentStats[opponent];
+        if (stats.games > 0) {
+            stats.winRate = stats.wins / stats.games;
+            stats.loseRate = stats.losses / stats.games;
+            stats.drawRate = stats.draws / stats.games;
         }
+    });
+    
+    return opponentStats;
+}
 
-        // 计算对手统计
-        function calculateOpponentStats(playerName, playerRecords) {
-            const opponentStats = {};
-            
-            // 初始化所有玩家
-            players.forEach(player => {
-                if (player !== playerName) {
-                    opponentStats[player] = {
-                        games: 0,
-                        wins: 0,
-                        totalPositionDiff: 0
-                    };
-                }
-            });
-            
-            // 统计对战数据
-            playerRecords.forEach(record => {
-                record.opponents.forEach(opponent => {
-                    if (opponentStats[opponent]) {
-                        opponentStats[opponent].games++;
-                        
-                        // 计算顺位差 (玩家顺位 - 对手顺位，负值表示表现更好)
-                        const playerPosition = record.position;
-                        // 这里简化处理，实际需要计算对手在该局中的顺位
-                        // 由于数据模型限制，这里使用近似值
-                        opponentStats[opponent].totalPositionDiff += (playerPosition - 2.5); // 2.5是平均顺位
-                        
-                        // 如果玩家顺位比对手高，计为胜利
-                        // 这里简化处理，实际需要比较具体顺位
-                        if (playerPosition < 2.5) { // 如果玩家顺位在前两名
-                            opponentStats[opponent].wins++;
-                        }
-                    }
-                });
-            });
-            
-            // 计算胜率和平均顺位差
-            Object.keys(opponentStats).forEach(opponent => {
-                const stats = opponentStats[opponent];
-                if (stats.games > 0) {
-                    stats.winRate = stats.wins / stats.games;
-                    stats.avgPositionDiff = stats.totalPositionDiff / stats.games;
-                } else {
-                    stats.winRate = 0;
-                    stats.avgPositionDiff = 0;
-                }
-            });
-            
-            return opponentStats;
-        }
+// 新增：计算雷达图数据
+function calculateRadarStats(playerName, playerRecords, basicStats) {
+    const { totalGames, positionRates, averagePoints, beFlownRate, totalPoints } = basicStats;
+    
+    // 六维能力值计算（0-100分）
+    const radarStats = {
+        攻击力: Math.min(positionRates[0] * 200, 100), // 一位率乘以200，上限100
+        防守力: Math.min((1 - beFlownRate) * 100, 100), // 不被飞率
+        稳定性: Math.min((1 - positionRates[3]) * 150, 100), // 非四位率乘以150，上限100
+        成长性: Math.min(averagePoints * 2 + 50, 100), // 平均积分转换
+        活跃度: Math.min(totalGames * 2, 100), // 对局数转换
+        潜力: Math.min((positionRates[0] + positionRates[1]) * 150, 100) // 一二位率合计乘以150
+    };
+    
+    return radarStats;
+}
 
         // 计算总体统计
         function calculateTotalStats(seasonFilter = 'all') {
@@ -2836,6 +3199,203 @@ function updatePlayerCards() {
                 alert('所有数据已清空！');
             }
         }
+
+// 新增：导出玩家卡片为图片
+function exportPlayerCard(playerName) {
+    const playerCard = document.querySelector(`.player-card:has(.player-name:contains("${playerName}"))`);
+    if (!playerCard) {
+        alert('找不到玩家卡片！');
+        return;
+    }
+    
+    // 添加导出标识
+    const originalBorder = playerCard.style.border;
+    playerCard.style.border = '2px solid #3498db';
+    
+    html2canvas(playerCard, {
+        backgroundColor: '#ecf0f1',
+        scale: 2,
+        useCORS: true
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `日麻战绩_${playerName}_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // 恢复原状
+        playerCard.style.border = originalBorder;
+    });
+}
+
+// 新增：导出分析报告为图片
+function exportAnalysisReport(playerName) {
+    const analysisContent = document.getElementById('player-analysis-content');
+    if (!analysisContent) {
+        alert('找不到分析内容！');
+        return;
+    }
+    
+    // 创建临时容器用于导出
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.width = '800px';
+    tempContainer.style.padding = '20px';
+    tempContainer.style.backgroundColor = 'white';
+    
+    // 复制分析内容
+    const contentClone = analysisContent.cloneNode(true);
+    
+    // 移除不需要导出的按钮
+    const buttons = contentClone.querySelectorAll('button');
+    buttons.forEach(btn => btn.remove());
+    
+    // 添加标题和时间
+    const title = document.createElement('h2');
+    title.textContent = `${playerName} 日麻战绩分析报告`;
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '20px';
+    title.style.color = '#2c3e50';
+    
+    const date = document.createElement('p');
+    date.textContent = `生成时间: ${new Date().toLocaleString()}`;
+    date.style.textAlign = 'center';
+    date.style.color = '#7f8c8d';
+    date.style.marginBottom = '30px';
+    
+    tempContainer.appendChild(title);
+    tempContainer.appendChild(date);
+    tempContainer.appendChild(contentClone);
+    document.body.appendChild(tempContainer);
+    
+    // 导出为图片
+    html2canvas(tempContainer, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `日麻分析报告_${playerName}_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // 清理临时元素
+        document.body.removeChild(tempContainer);
+    }).catch(error => {
+        console.error('导出失败:', error);
+        alert('导出失败，请重试！');
+        document.body.removeChild(tempContainer);
+    });
+}
+
+// 新增：导出雷达图为图片
+function exportRadarChart(playerName) {
+    const radarCanvas = document.getElementById('radar-chart');
+    if (!radarCanvas) {
+        alert('找不到雷达图！');
+        return;
+    }
+    
+    // 创建临时容器
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.width = '600px';
+    tempContainer.style.padding = '20px';
+    tempContainer.style.backgroundColor = 'white';
+    tempContainer.style.textAlign = 'center';
+    
+    // 添加标题
+    const title = document.createElement('h3');
+    title.textContent = `${playerName} 能力雷达图`;
+    title.style.marginBottom = '20px';
+    title.style.color = '#2c3e50';
+    
+    // 复制雷达图
+    const canvasClone = radarCanvas.cloneNode(true);
+    canvasClone.style.width = '500px';
+    canvasClone.style.height = '400px';
+    
+    tempContainer.appendChild(title);
+    tempContainer.appendChild(canvasClone);
+    document.body.appendChild(tempContainer);
+    
+    // 导出
+    html2canvas(tempContainer, {
+        scale: 2,
+        useCORS: true
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `日麻雷达图_${playerName}_${new Date().toISOString().slice(0,10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        document.body.removeChild(tempContainer);
+    });
+}
+
+// 新增：导出整个玩家统计页面
+function exportAllPlayersStats() {
+    const playersTab = document.getElementById('players-tab');
+    if (!playersTab) {
+        alert('找不到玩家统计页面！');
+        return;
+    }
+    
+    // 创建临时容器
+    const tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-9999px';
+    tempContainer.style.width = '1200px';
+    tempContainer.style.padding = '30px';
+    tempContainer.style.backgroundColor = 'white';
+    
+    // 添加标题
+    const title = document.createElement('h1');
+    title.textContent = '日麻玩家战绩总览';
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '10px';
+    title.style.color = '#2c3e50';
+    
+    const date = document.createElement('p');
+    date.textContent = `生成时间: ${new Date().toLocaleString()}`;
+    date.style.textAlign = 'center';
+    date.style.color = '#7f8c8d';
+    date.style.marginBottom = '30px';
+    
+    // 复制玩家卡片区域
+    const playersStats = document.getElementById('players-stats');
+    if (playersStats) {
+        const statsClone = playersStats.cloneNode(true);
+        
+        // 移除导出按钮
+        const exportButtons = statsClone.querySelectorAll('.export-card-btn');
+        exportButtons.forEach(btn => btn.remove());
+        
+        // 调整布局为适合导出的格式
+        statsClone.style.display = 'grid';
+        statsClone.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        statsClone.style.gap = '15px';
+        
+        tempContainer.appendChild(title);
+        tempContainer.appendChild(date);
+        tempContainer.appendChild(statsClone);
+        document.body.appendChild(tempContainer);
+        
+        html2canvas(tempContainer, {
+            scale: 2,
+            useCORS: true,
+            logging: false
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `日麻玩家总览_${new Date().toISOString().slice(0,10)}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            document.body.removeChild(tempContainer);
+        });
+    }
+}
 
 // 新增：更新称号条件显示函数
         function updateTitlesConditions() {
