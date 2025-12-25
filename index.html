@@ -2412,13 +2412,15 @@ function calculatePlayerStats(playerName, playerRecords) {
     const opponentStats = calculateDetailedOpponentStats(playerName, playerRecords);
     
     // 计算雷达图数据
-    const radarStats = calculateRadarStats(playerName, playerRecords, {
-        totalGames,
-        positionRates,
-        averagePoints: totalPoints / totalGames,
-        beFlownRate,
-        totalPoints
-    });
+const radarStats = calculateRadarStats(playerName, playerRecords, {
+    totalGames,
+    positionRates,
+    averagePoints: totalPoints / totalGames,
+    beFlownRate,
+    totalPoints,
+    averagePosition: totalPosition / totalGames,
+    flyOutRate
+});
     
     return {
         totalGames: totalGames,
@@ -2588,21 +2590,99 @@ function calculateDetailedOpponentStats(playerName, playerRecords) {
     return opponentStats;
 }
 
-// 新增：计算雷达图数据
-function calculateRadarStats(playerName, playerRecords, basicStats) {
-    const { totalGames, positionRates, averagePoints, beFlownRate, totalPoints } = basicStats;
+// 新增：计算攻击力得分
+function calculateAttackScore(firstPlaceRate, flyOutRate) {
+    // 一位率权重60%，飞人率权重40%
+    const firstPlaceScore = Math.min(firstPlaceRate * 200, 100) * 0.6;
+    const flyOutScore = Math.min(flyOutRate * 300, 100) * 0.4;
+    return Math.min(firstPlaceScore + flyOutScore, 100);
+}
+
+// 新增：计算防守力得分
+function calculateDefenseScore(fourthPlaceRate, beFlownRate) {
+    // 避四位率权重60%，避免被飞权重40%
+    const avoidFourthScore = (1 - fourthPlaceRate) * 100 * 0.6;
+    const avoidBeFlownScore = (1 - beFlownRate) * 100 * 0.4;
+    return Math.min(avoidFourthScore + avoidBeFlownScore, 100);
+}
+
+// 修改：计算稳定性得分函数（现在接受两个参数）
+function calculateStabilityScore(averagePosition, badPositionRate) {
+    // 平均顺位越接近2越稳定（权重50%）
+    const positionStability = Math.max(0, 100 - Math.abs(averagePosition - 2) * 50);
     
-    // 六维能力值计算（0-100分）
+    // 三四位率越低越稳定（权重50%）
+    const badPositionPenalty = Math.max(0, 100 - badPositionRate * 200);
+    
+    return Math.min(positionStability * 0.5 + badPositionPenalty * 0.5, 100);
+}
+
+// 新增：计算综合实力得分
+function calculateOverallScore(firstPlaceRate, fourthPlaceRate, beFlownRate, totalGames, totalPoints) {
+    // 一位率得分
+    const firstPlaceScore = firstPlaceRate * 100;
+    
+    // 避四位率得分
+    const avoidFourthScore = (1 - fourthPlaceRate) * 100;
+    
+    // 避免被飞率得分
+    const avoidBeFlownScore = (1 - beFlownRate) * 100;
+    
+    // 活跃度得分：每局2分，最多50局即100分
+    const activityScore = Math.min(totalGames * 2, 100);
+    
+    // 积分效率得分：平均每局积分，以20分为满分
+    const pointsPerGame = totalGames > 0 ? totalPoints / totalGames : 0;
+    const efficiencyScore = Math.min(pointsPerGame * 5, 100); // 20分=100分，每分5分
+    
+    // 权重：一位率25%，避四位率25%，避免被飞20%，活跃度15%，积分效率15%
+    return Math.min(
+        (firstPlaceScore * 0.25) + 
+        (avoidFourthScore * 0.25) + 
+        (avoidBeFlownScore * 0.2) + 
+        (activityScore * 0.15) + 
+        (efficiencyScore * 0.15), 
+        100
+    );
+}
+
+// 计算雷达图数据（五个维度）
+function calculateRadarStats(playerName, playerRecords, basicStats) {
+    const { totalGames, positionRates, averagePoints, beFlownRate, totalPoints, averagePosition, flyOutRate } = basicStats;
+    
+    // 五个维度的能力值计算（0-100分）
     const radarStats = {
-        攻击力: Math.min(positionRates[0] * 200, 100), // 一位率乘以200，上限100
-        防守力: Math.min((1 - beFlownRate) * 100, 100), // 不被飞率
-        稳定性: Math.min((1 - positionRates[3]) * 150, 100), // 非四位率乘以150，上限100
-        成长性: Math.min(averagePoints * 2 + 50, 100), // 平均积分转换
-        活跃度: Math.min(totalGames * 2, 100), // 对局数转换
-        潜力: Math.min((positionRates[0] + positionRates[1]) * 150, 100) // 一二位率合计乘以150
+        攻击力: calculateAttackScore(positionRates[0], flyOutRate),
+        防守力: calculateDefenseScore(positionRates[3], beFlownRate),
+        稳定性: calculateStabilityScore(averagePosition, positionRates[2] + positionRates[3]),
+        成长性: calculateGrowthScore(playerName, playerRecords),
+        综合实力: calculateOverallScore(positionRates[0], positionRates[3], beFlownRate, totalGames, totalPoints)
     };
     
     return radarStats;
+}
+
+// 计算成长性得分（基于近期表现提升）
+function calculateGrowthScore(playerName, playerRecords) {
+    if (playerRecords.length < 10) return 50; // 数据不足时返回中间值
+    
+    // 将记录按时间分为前50%和后50%
+    const sortedRecords = [...playerRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const splitIndex = Math.floor(sortedRecords.length / 2);
+    const earlyGames = sortedRecords.slice(0, splitIndex);
+    const recentGames = sortedRecords.slice(splitIndex);
+    
+    // 计算前后期的平均积分
+    const earlyAvg = earlyGames.reduce((sum, game) => sum + game.points, 0) / earlyGames.length;
+    const recentAvg = recentGames.reduce((sum, game) => sum + game.points, 0) / recentGames.length;
+    
+    // 计算成长性（后期相比前期的提升百分比）
+    const improvement = ((recentAvg - earlyAvg) / Math.abs(earlyAvg || 1)) * 100;
+    
+    // 转换为0-100分：每10%提升得10分，最高100分，下降同理
+    const growthScore = Math.min(Math.max(50 + improvement * 10, 0), 100);
+    
+    return growthScore;
 }
 
         // 计算总体统计
