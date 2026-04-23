@@ -1273,6 +1273,17 @@ function calculateRankingsAndPoints(gameType, playerScoreList) {
                 isActive: true
             }
         };
+
+// 役满名称列表（含特殊形态）
+const yakumanList = [
+    "大三元", "大四喜", "字一色", "清老头", "绿一色",
+    "九莲宝灯", "纯正九莲宝灯", "国士无双", "国士无双十三面",
+    "小四喜", "四暗刻", "四暗刻单骑", "四杠子",
+    "天和", "地和", "人和"
+];
+
+// 役满记录存储对象
+let yakumanRecords = JSON.parse(localStorage.getItem('mahjongYakuman')) || {};
         
         // 云同步设置
         let syncSettings = JSON.parse(localStorage.getItem('mahjongSync')) || {
@@ -1295,7 +1306,8 @@ document.addEventListener('DOMContentLoaded', function() {
     checkSyncStatus();
     
     // 初始化称号系统
-    updateAllTitles();
+updateAllTitles();
+loadYakumanDataFromStorage();  // 新增：初始化役满数据
     updateTitlesConditions(); // 新增：初始化称号条件显示
 });
 
@@ -1463,6 +1475,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('season-modal').style.display = 'none';
             });
             
+// 事件委托：处理役满相关按钮点击
+document.getElementById('player-analysis-content').addEventListener('click', function(e) {
+    // 添加役满按钮
+    if (e.target.id === 'add-yakuman-btn') {
+        const playerName = e.target.getAttribute('data-player');
+        addYakumanRecord(playerName);
+    }
+    // 展开/折叠日期按钮
+    if (e.target.classList.contains('yakuman-detail-btn')) {
+        const playerName = e.target.getAttribute('data-player');
+        const yakumanName = e.target.getAttribute('data-yakuman');
+        const datesRow = document.querySelector(`.yakuman-dates[data-yakuman-name="${yakumanName}"]`);
+        if (datesRow) {
+            datesRow.style.display = datesRow.style.display === 'none' ? 'table-row' : 'none';
+        }
+    }
+});
+
             // 点击模态框外部关闭
              window.addEventListener('click', function(e) {
                 const modals = ['game-detail-modal', 'season-modal', 'game-edit-modal', 'title-detail-modal'];
@@ -1542,6 +1572,83 @@ document.addEventListener('DOMContentLoaded', function() {
                 syncStatus.className = 'sync-status sync-offline';
             }
         }
+
+function loadYakumanDataFromStorage() {
+    // 如果 localStorage 中没有，保持空对象
+    if (!yakumanRecords || Object.keys(yakumanRecords).length === 0) {
+        yakumanRecords = {};
+    }
+}
+
+// 生成役满统计的 HTML
+function renderYakumanStats(playerName) {
+    const playerRecords = yakumanRecords[playerName] || [];
+    // 统计每种役满的出现次数和日期
+    const stats = {};
+    playerRecords.forEach(record => {
+        if (!stats[record.name]) {
+            stats[record.name] = { count: 0, dates: [] };
+        }
+        stats[record.name].count++;
+        stats[record.name].dates.push(record.date);
+    });
+
+    // 生成表格行
+    let tableRows = '';
+    const yakumanNames = Object.keys(stats).sort((a, b) => stats[b].count - stats[a].count); // 按次数降序
+
+    if (yakumanNames.length === 0) {
+        tableRows = '<tr><td colspan="2" style="text-align:center;">暂无役满记录</td></tr>';
+    } else {
+        yakumanNames.forEach(name => {
+            const s = stats[name];
+            const dateList = s.dates.join(', ');
+            tableRows += `
+                <tr class="yakuman-row" data-yakuman-name="${name}">
+                    <td style="font-weight:bold;">${name} ${s.count > 1 ? `✖${s.count}` : ''}</td>
+                    <td>
+                        <button class="btn-warning yakuman-detail-btn" data-player="${playerName}" data-yakuman="${name}">展开日期</button>
+                    </td>
+                </tr>
+                <tr class="yakuman-dates" data-yakuman-name="${name}" style="display:none;">
+                    <td colspan="2" style="background:#f8f9fa; padding:8px; font-size:0.9rem;">
+                        胡牌日期：${dateList}
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // 录入表单
+    const formHTML = `
+        <div style="margin-top:15px; padding:15px; background:#fafafa; border-radius:8px;">
+            <label style="font-weight:bold;">记录新役满</label>
+            <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+                <select id="new-yakuman-select" class="edit-player-select" style="flex:1; min-width:150px;">
+                    <option value="">请选择役满</option>
+                    ${yakumanList.map(y => `<option value="${y}">${y}</option>`).join('')}
+                </select>
+                <input type="date" id="new-yakuman-date" class="edit-player-select" style="flex:1; min-width:150px;" value="${new Date().toISOString().split('T')[0]}">
+                <button class="btn-success" id="add-yakuman-btn" data-player="${playerName}" style="white-space:nowrap;">添加</button>
+            </div>
+        </div>
+    `;
+
+    return `
+        <table style="width:100%; margin-bottom:15px;">
+            <thead>
+                <tr>
+                    <th>役满名称</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+        ${formHTML}
+    `;
+}
 
         // 初始化分析标签页
         function initializeAnalysisTab() {
@@ -2115,11 +2222,21 @@ playerCard.innerHTML = `
         `;
     });
     
-    analysisHTML += `
+     analysisHTML += `
             </tbody>
         </table>
     `;
-    
+
+    // === 役满统计区块 ===
+    analysisHTML += `
+        <div class="card" style="margin-top:20px;">
+            <h3 class="card-title">役满统计</h3>
+            <div id="yakuman-stats-container">
+                ${renderYakumanStats(playerName)}
+            </div>
+        </div>
+    `;
+
     document.getElementById('player-analysis-content').innerHTML = analysisHTML;
     
     // 绘制雷达图
@@ -3051,6 +3168,45 @@ function calculateGrowthScore(playerName, playerRecords) {
                 alert('请先设置云同步URL');
             }
         }
+
+function addYakumanRecord(playerName) {
+    const select = document.getElementById('new-yakuman-select');
+    const dateInput = document.getElementById('new-yakuman-date');
+    const yakumanName = select.value;
+    const date = dateInput.value;
+
+    if (!yakumanName) {
+        alert('请选择役满种类！');
+        return;
+    }
+    if (!date) {
+        alert('请选择日期！');
+        return;
+    }
+
+    // 初始化该玩家的记录数组
+    if (!yakumanRecords[playerName]) {
+        yakumanRecords[playerName] = [];
+    }
+
+    // 添加记录
+    yakumanRecords[playerName].push({
+        name: yakumanName,
+        date: date
+    });
+
+    // 保存到 localStorage
+    localStorage.setItem('mahjongYakuman', JSON.stringify(yakumanRecords));
+
+    // 刷新役满显示区域
+    const container = document.getElementById('yakuman-stats-container');
+    if (container) {
+        container.innerHTML = renderYakumanStats(playerName);
+    }
+
+    // 可选提示
+    alert(`成功记录：${playerName} 胡了 ${yakumanName}（${date}）`);
+}
 
         // 导出到Excel
         function exportToExcel() {
