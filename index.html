@@ -754,6 +754,7 @@ table th {
             <div class="tab" data-tab="trends">趋势图表</div>
             <div class="tab" data-tab="seasons">赛季管理</div>
             <div class="tab" data-tab="player-mgmt">玩家管理</div>
+            <div class="tab" data-tab="team-results">比赛战绩</div>
             <div class="tab" data-tab="export">导入/导出</div>
         </div>
         
@@ -996,6 +997,24 @@ table th {
             </div>
         </div>
         
+<div class="tab-content" id="team-results-tab">
+    <div class="card">
+        <h2 class="card-title">比赛战绩</h2>
+        <div class="form-group">
+            <label for="team-season-filter">选择赛季</label>
+            <select id="team-season-filter">
+                <option value="">请选择团队赛季</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="team-phase-filter">选择阶段</label>
+            <select id="team-phase-filter">
+            </select>
+        </div>
+        <div id="team-results-content"></div>
+    </div>
+</div>
+
         <div class="tab-content" id="export-tab">
             <div class="card">
                 <h2 class="card-title">数据导入/导出</h2>
@@ -1135,6 +1154,16 @@ table th {
                     <input type="date" id="season-end" required>
                 </div>
                 
+<div class="form-group">
+    <label>
+        <input type="checkbox" id="season-is-team" style="width:auto; margin-right:8px;"> 团队比赛赛季
+    </label>
+</div>
+<div class="form-group" id="season-phases-group" style="display:none;">
+    <label for="season-phases">阶段名称（用逗号分隔，如：常规赛,季后赛,决赛）</label>
+    <input type="text" id="season-phases" placeholder="常规赛,季后赛,决赛">
+</div>
+
                 <div class="form-group">
                     <label>参赛玩家</label>
                     <div id="season-players">
@@ -1334,15 +1363,24 @@ function recalcRecordPoints(record) {
         
         // 赛季数据
         let seasons = JSON.parse(localStorage.getItem('mahjongSeasons')) || {
-            "default": {
-                id: "default",
-                name: "默认赛季",
-                start: "2024-01-01",
-                end: "2024-12-31",
-                players: players,
-                isActive: true
-            }
-        };
+    "default": {
+        id: "default",
+        name: "默认赛季",
+        start: "2024-01-01",
+        end: "2024-12-31",
+        players: players,
+        isActive: true,
+        isTeamSeason: false,
+        teams: {},
+        phases: []
+    }
+};
+// 确保每个赛季都有新字段
+Object.values(seasons).forEach(season => {
+    if (season.isTeamSeason === undefined) season.isTeamSeason = false;
+    if (!season.teams) season.teams = {};
+    if (!season.phases) season.phases = [];
+});
 
 // 役满名称列表（含特殊形态）
 const yakumanList = [
@@ -1449,14 +1487,17 @@ loadYakumanDataFromStorage();  // 新增：初始化役满数据
                     const contentId = tabId === 'player-mgmt' ? 'player-mgmt-tab' : `${tabId}-tab`;
                     document.getElementById(contentId).classList.add('active');
                     
-                    // 特殊标签页初始化
-                    if (tabId === 'analysis') {
-                        updatePlayerAnalysis();
-                    } else if (tabId === 'trends') {
-                        updateTrendCharts();
-                    } else if (tabId === 'player-mgmt') {
-                        loadPlayersList();
-                    }
+                   // 特殊标签页初始化
+if (tabId === 'analysis') {
+    updatePlayerAnalysis();
+} else if (tabId === 'trends') {
+    updateTrendCharts();
+} else if (tabId === 'player-mgmt') {
+    loadPlayersList();
+} else if (tabId === 'team-results') {
+    populateTeamSeasonFilter();
+    renderTeamResults();
+}
                 });
             });
             
@@ -1513,10 +1554,18 @@ loadYakumanDataFromStorage();  // 新增：初始化役满数据
             document.getElementById('trend-season').addEventListener('change', updateTrendCharts);
             
             // 创建赛季
-            document.getElementById('create-season').addEventListener('click', function() {
-                document.getElementById('season-modal').style.display = 'flex';
-                initializeSeasonForm();
-            });
+           document.getElementById('create-season').addEventListener('click', function() {
+    document.getElementById('season-modal').style.display = 'flex';
+    initializeSeasonForm();
+    // 监听团队赛季复选框
+    const teamCheck = document.getElementById('season-is-team');
+    if (teamCheck) {
+        teamCheck.addEventListener('change', function() {
+            document.getElementById('season-phases-group').style.display = 
+                this.checked ? 'block' : 'none';
+        });
+    }
+});
             
             // 关闭模态框
  document.getElementById('close-title-modal').addEventListener('click', function() {
@@ -1618,6 +1667,25 @@ document.getElementById('player-analysis-content').addEventListener('click', fun
     document.getElementById('close-edit-modal')?.addEventListener('click', function() {
         document.getElementById('game-edit-modal').style.display = 'none';
     });
+
+   // 委托：管理队伍和管理阶段按钮
+document.body.addEventListener('click', function(e) {
+    if (e.target.classList.contains('manage-teams-btn')) {
+        const seasonId = e.target.getAttribute('data-id');
+        showTeamManager(seasonId);
+    }
+    if (e.target.classList.contains('manage-phases-btn')) {
+        const seasonId = e.target.getAttribute('data-id');
+        showPhaseManager(seasonId);
+   }
+});
+
+document.getElementById('team-season-filter').addEventListener('change', function() {
+    updateTeamPhaseFilter();
+    renderTeamResults();
+});
+document.getElementById('team-phase-filter').addEventListener('change', renderTeamResults);
+
 }
         // 初始化赛季表单
         function initializeSeasonForm() {
@@ -1641,6 +1709,13 @@ document.getElementById('player-analysis-content').addEventListener('click', fun
             const endDate = new Date();
             endDate.setMonth(endDate.getMonth() + 3);
             document.getElementById('season-end').value = endDate.toISOString().split('T')[0];
+
+            const isTeamCheck = document.getElementById('season-is-team');
+if (isTeamCheck) isTeamCheck.checked = false;
+const phasesGroup = document.getElementById('season-phases-group');
+if (phasesGroup) phasesGroup.style.display = 'none';
+const phasesInput = document.getElementById('season-phases');
+if (phasesInput) phasesInput.value = '';
         }
 
         // 检查同步状态
@@ -3087,42 +3162,58 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
         }
 
         // 创建新赛季
-        function createNewSeason() {
-            const name = document.getElementById('season-name').value;
-            const start = document.getElementById('season-start').value;
-            const end = document.getElementById('season-end').value;
-            
-            const selectedPlayers = Array.from(document.querySelectorAll('input[name="season-player"]:checked'))
-                .map(input => input.value);
-            
-            if (selectedPlayers.length < 4) {
-                alert('赛季至少需要4名玩家！');
-                return;
-            }
-            
-            const seasonId = 'season_' + Date.now();
-            
-            seasons[seasonId] = {
-                id: seasonId,
-                name: name,
-                start: start,
-                end: end,
-                players: selectedPlayers,
-                isActive: true
-            };
-            
-            // 保存赛季数据
-            localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
-            
-            // 更新界面
-            initializeSeasonSelects();
-            loadSeasonsList();
-            
-            // 关闭模态框
-            document.getElementById('season-modal').style.display = 'none';
-            
-            alert('赛季创建成功！');
-        }
+       function createNewSeason() {
+    const name = document.getElementById('season-name').value;
+    const start = document.getElementById('season-start').value;
+    const end = document.getElementById('season-end').value;
+    const isTeamSeason = document.getElementById('season-is-team')?.checked || false;
+    const phaseNamesInput = document.getElementById('season-phases')?.value.trim() || '';
+    const phaseNames = phaseNamesInput ? phaseNamesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+    
+    const selectedPlayers = Array.from(document.querySelectorAll('input[name="season-player"]:checked'))
+        .map(input => input.value);
+    
+    if (selectedPlayers.length < 4) {
+        alert('赛季至少需要4名玩家！');
+        return;
+    }
+    if (isTeamSeason && phaseNames.length === 0) {
+        alert('团队比赛赛季必须至少设置一个阶段名称（多个用逗号分隔）');
+        return;
+    }
+    
+    const seasonId = 'season_' + Date.now();
+    
+    seasons[seasonId] = {
+        id: seasonId,
+        name: name,
+        start: start,
+        end: end,
+        players: selectedPlayers,
+        isActive: true,
+        isTeamSeason: isTeamSeason,
+        teams: {},
+        phases: phaseNames.map((pname, idx) => ({
+            id: 'phase_' + Date.now() + '_' + idx,
+            name: pname,
+            order: idx + 1,
+            locked: false,
+            carryOverPoints: {}
+        }))
+    };
+    
+    // 保存赛季数据
+    localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+    
+    // 更新界面
+    initializeSeasonSelects();
+    loadSeasonsList();
+    
+    // 关闭模态框
+    document.getElementById('season-modal').style.display = 'none';
+    
+    alert('赛季创建成功！');
+}
 
         // 加载赛季列表
         function loadSeasonsList() {
@@ -3137,7 +3228,7 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                 const playerCount = season.players.length;
                 const gameCount = gameRecords.filter(record => record.seasonId === season.id).length;
                 
-                seasonCard.innerHTML = `
+               seasonCard.innerHTML = `
                     <h3>${season.name} ${season.isActive ? '<span class="season-badge">进行中</span>' : ''}</h3>
                     <p><strong>时间:</strong> ${season.start} 至 ${season.end}</p>
                     <p><strong>玩家:</strong> ${playerCount}人</p>
@@ -3146,8 +3237,12 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                         <button class="btn-success set-active-season" data-id="${season.id}">设为活跃</button>
                         <button class="btn-danger delete-season" data-id="${season.id}">删除</button>
                     </div>
+                    ${season.isTeamSeason ? `
+                    <div class="btn-group" style="margin-top:10px;">
+                        <button class="btn-warning manage-teams-btn" data-id="${season.id}">管理队伍</button>
+                        <button class="btn-warning manage-phases-btn" data-id="${season.id}">管理阶段</button>
+                    </div>` : ''}
                 `;
-                
                 seasonsList.appendChild(seasonCard);
             });
             
@@ -4059,6 +4154,212 @@ function exportAllPlayersStats() {
             updateDetailedStats();
             updateTitlesConditions(); // 新增：更新称号条件显示
         }
+
+// ========== 以下为比赛团队模式新增函数 ==========
+
+function populateTeamSeasonFilter() {
+    const select = document.getElementById('team-season-filter');
+    select.innerHTML = '<option value="">请选择团队赛季</option>';
+    Object.values(seasons).filter(s => s.isTeamSeason).forEach(season => {
+        const opt = document.createElement('option');
+        opt.value = season.id;
+        opt.textContent = season.name;
+        select.appendChild(opt);
+    });
+}
+
+function updateTeamPhaseFilter() {
+    const seasonId = document.getElementById('team-season-filter').value;
+    const phaseSelect = document.getElementById('team-phase-filter');
+    phaseSelect.innerHTML = '';
+    if (!seasonId) return;
+    const season = seasons[seasonId];
+    season.phases.forEach(phase => {
+        const opt = document.createElement('option');
+        opt.value = phase.id;
+        opt.textContent = phase.name + (phase.locked ? ' (已结束)' : '');
+        phaseSelect.appendChild(opt);
+    });
+}
+
+function calculateTeamPointsInPhase(seasonId, phaseId) {
+    const season = seasons[seasonId];
+    const games = gameRecords.filter(r => r.seasonId === seasonId && r.phaseId === phaseId);
+    const teamSum = {};
+    Object.keys(season.teams).forEach(tid => { teamSum[tid] = 0; });
+    games.forEach(record => {
+        record.playerPoints.forEach(pp => {
+            for (let [tid, team] of Object.entries(season.teams)) {
+                if (team.members.includes(pp.player)) {
+                    teamSum[tid] = (teamSum[tid] || 0) + pp.points;
+                    break;
+                }
+            }
+        });
+    });
+    return teamSum;
+}
+
+function renderTeamResults() {
+    const seasonId = document.getElementById('team-season-filter').value;
+    const phaseId = document.getElementById('team-phase-filter').value;
+    const container = document.getElementById('team-results-content');
+    if (!seasonId || !phaseId) { container.innerHTML = ''; return; }
+    const season = seasons[seasonId];
+    const phase = season.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+    const carry = phase.carryOverPoints || {};
+    const currentPoints = calculateTeamPointsInPhase(seasonId, phaseId);
+    const teamsArr = Object.entries(season.teams).map(([tid, team]) => {
+        const inherited = parseFloat(carry[tid]) || 0;
+        const gained = currentPoints[tid] || 0;
+        const total = inherited + gained;
+        return { tid, name: team.name, members: team.members.join(', '), eliminated: team.eliminated, inherited: inherited.toFixed(2), gained: gained.toFixed(2), total: total.toFixed(2) };
+    }).sort((a,b) => b.total - a.total);
+    let html = `<table><tr><th>排名</th><th>队伍</th><th>队员</th><th>继承分</th><th>本阶段得分</th><th>合计</th><th>状态</th></tr>`;
+    teamsArr.forEach((t, idx) => {
+        html += `<tr style="${t.eliminated ? 'color:#aaa;' : ''}"><td>${idx+1}</td><td>${t.name}</td><td>${t.members}</td><td>${t.inherited}</td><td>${t.gained}</td><td>${t.total}</td><td>${t.eliminated ? '已淘汰' : '活跃'}</td></tr>`;
+    });
+    html += '</table><div style="margin-top:20px;" id="team-detail"></div>';
+    container.innerHTML = html;
+}
+
+// 队伍管理模态框
+function showTeamManager(seasonId) {
+    const season = seasons[seasonId];
+    if (!season) return;
+    const teams = season.teams || {};
+    let teamsHTML = '';
+    Object.entries(teams).forEach(([teamId, team]) => {
+        teamsHTML += `<div style="display:flex; align-items:center; margin-bottom:10px; gap:10px;">
+            <input type="text" value="${team.name}" data-team-id="${teamId}" class="team-name-input" style="flex:2;">
+            <select multiple class="team-members-select" data-team-id="${teamId}" style="flex:3; height:80px;">
+                ${season.players.map(p => `<option value="${p}" ${team.members.includes(p)?'selected':''}>${p}</option>`).join('')}
+            </select>
+            <button class="btn-danger delete-team-btn" data-season-id="${seasonId}" data-team-id="${teamId}">删除</button>
+        </div>`;
+    });
+    const modal = createModal('team-manager-modal', '队伍管理 - ' + season.name, `
+        <div style="max-height:70vh; overflow-y:auto;">
+            <div id="teams-container">${teamsHTML}</div>
+            <button class="btn-success" id="add-team-btn" data-season-id="${seasonId}">添加队伍</button>
+            <div style="margin-top:20px; text-align:right;">
+                <button class="btn-warning" id="save-teams-btn" data-season-id="${seasonId}">保存</button>
+                <button class="btn-danger close-team-modal">取消</button>
+            </div>
+        </div>`);
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    document.getElementById('add-team-btn').addEventListener('click', function() {
+        const container = document.getElementById('teams-container');
+        const newId = 'team_' + Date.now();
+        container.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; margin-bottom:10px; gap:10px;">
+            <input type="text" value="新队伍" data-team-id="${newId}" class="team-name-input" style="flex:2;">
+            <select multiple class="team-members-select" data-team-id="${newId}" style="flex:3; height:80px;">
+                ${season.players.map(p => `<option value="${p}">${p}</option>`).join('')}
+            </select>
+            <button class="btn-danger delete-team-btn" data-season-id="${seasonId}" data-team-id="${newId}">删除</button>
+        </div>`);
+    });
+    document.getElementById('save-teams-btn').addEventListener('click', function() { saveTeams(seasonId); });
+    document.querySelector('.close-team-modal').addEventListener('click', function() { document.getElementById('team-manager-modal')?.remove(); });
+    document.getElementById('teams-container').addEventListener('click', function(e) {
+        if (e.target.classList.contains('delete-team-btn')) e.target.parentElement.remove();
+    });
+}
+
+function saveTeams(seasonId) {
+    const season = seasons[seasonId];
+    const newTeams = {};
+    const memberSet = new Set();
+    let valid = true;
+    document.querySelectorAll('.team-name-input').forEach(input => {
+        const teamId = input.dataset.teamId;
+        const name = input.value.trim();
+        const select = document.querySelector(`.team-members-select[data-team-id="${teamId}"]`);
+        const members = Array.from(select.selectedOptions).map(o => o.value);
+        if (!name) { alert('队伍名称不能为空'); valid = false; return; }
+        members.forEach(m => {
+            if (memberSet.has(m)) { alert(`玩家 ${m} 已属于其他队伍，一人一队！`); valid = false; }
+            else memberSet.add(m);
+        });
+        newTeams[teamId] = { name, members, eliminated: season.teams[teamId]?.eliminated || false };
+    });
+    if (!valid) return;
+    season.teams = newTeams;
+    localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+    document.getElementById('team-manager-modal')?.remove();
+    loadSeasonsList();
+    alert('队伍保存成功！');
+}
+
+// 阶段管理
+function showPhaseManager(seasonId) {
+    const season = seasons[seasonId];
+    if (!season) return;
+    let phasesHTML = season.phases.map((phase, idx) => `
+        <div style="margin-bottom:10px; border:1px solid #ccc; padding:10px; border-radius:8px;">
+            <strong>${phase.name}</strong> (${phase.locked ? '已锁定' : '可操作'})
+            ${!phase.locked ? `<button class="btn-warning start-next-phase-btn" data-season-id="${seasonId}" data-phase-id="${phase.id}">从此阶段进入下一阶段</button>` : ''}
+        </div>`).join('');
+    const modal = createModal('phase-manager-modal', '阶段管理 - ' + season.name, `
+        <div style="max-height:70vh; overflow-y:auto;">
+            <div id="phases-container">${phasesHTML}</div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <input type="text" id="new-phase-name" placeholder="新阶段名称" style="flex:2;">
+                <button class="btn-success" id="add-phase-btn" data-season-id="${seasonId}">添加阶段</button>
+            </div>
+            <div style="margin-top:20px; text-align:right;">
+                <button class="btn-danger close-phase-modal">关闭</button>
+            </div>
+        </div>`);
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    document.getElementById('add-phase-btn').addEventListener('click', function() {
+        const name = document.getElementById('new-phase-name').value.trim();
+        if (!name) { alert('请输入阶段名称'); return; }
+        season.phases.push({ id: 'phase_' + Date.now(), name, order: season.phases.length + 1, locked: false, carryOverPoints: {} });
+        localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+        modal.remove();
+        showPhaseManager(seasonId);
+    });
+    document.querySelector('.close-phase-modal').addEventListener('click', () => modal.remove());
+    document.querySelectorAll('.start-next-phase-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            advanceToNextPhase(this.dataset.seasonId, this.dataset.phaseId);
+        });
+    });
+}
+
+function advanceToNextPhase(seasonId, currentPhaseId) {
+    const season = seasons[seasonId];
+    const phases = season.phases.sort((a,b) => a.order - b.order);
+    const idx = phases.findIndex(p => p.id === currentPhaseId);
+    if (idx === -1 || idx === phases.length - 1) { alert('已经是最后一个阶段！'); return; }
+    const nextPhase = phases[idx + 1];
+    const currentTotal = calculateTeamPointsInPhase(seasonId, currentPhaseId);
+    const carry = {};
+    Object.keys(season.teams).forEach(tid => {
+        if (!season.teams[tid].eliminated) carry[tid] = ((currentTotal[tid] || 0) * 0.5).toFixed(2);
+    });
+    nextPhase.carryOverPoints = carry;
+    phases[idx].locked = true;
+    localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+    alert('已进入下一阶段，积分减半继承。');
+}
+
+// 通用模态框创建
+function createModal(id, title, innerHTML) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = id;
+    modal.innerHTML = `<div class="modal-content" style="max-width:700px;">
+        <span class="close-modal" onclick="this.parentElement.parentElement.remove()">&times;</span>
+        <h2 class="modal-title">${title}</h2>
+        ${innerHTML}
+    </div>`;
+    return modal;
+}
 
     </script>
 </body>
