@@ -1439,34 +1439,40 @@ loadYakumanDataFromStorage();  // 新增：初始化役满数据
         }
 
         // 初始化赛季选择下拉框
-        function initializeSeasonSelects() {
-            const seasonSelects = document.querySelectorAll('#season-select, #view-season-filter, #player-season-filter, #analysis-season-filter, #trend-season');
-            seasonSelects.forEach(select => {
-                // 清空现有选项
-                select.innerHTML = '';
-                
-                // 添加赛季选项
-                Object.values(seasons).forEach(season => {
-                    const option = document.createElement('option');
-                    option.value = season.id;
-                    option.textContent = season.name + (season.isActive ? ' (进行中)' : '');
-                    if (season.id === 'default') {
-                        option.selected = true;
-                    }
-                    select.appendChild(option);
-                });
-                
-                // 为筛选器添加"全部赛季"选项
-                if (select.id !== 'season-select') {
-                    const allOption = document.createElement('option');
-                    allOption.value = 'all';
-                    allOption.textContent = '全部赛季';
-                    allOption.selected = true;
-                    select.insertBefore(allOption, select.firstChild);
-                }
-            });
+function initializeSeasonSelects() {
+    const seasonSelects = document.querySelectorAll('#season-select, #view-season-filter, #player-season-filter, #analysis-season-filter, #trend-season');
+    seasonSelects.forEach(select => {
+        // 清空现有选项
+        select.innerHTML = '';
+        
+        // 赛季数组：按 active 排前面，同状态下按 id（可改为名称）
+        const sortedSeasons = Object.values(seasons).sort((a, b) => {
+            if (a.isActive === b.isActive) return 0;
+            return a.isActive ? -1 : 1;  // active 的在前
+        });
+        
+        // 添加赛季选项
+        sortedSeasons.forEach(season => {
+            const option = document.createElement('option');
+            option.value = season.id;
+            option.textContent = season.name + (season.isActive ? ' (进行中)' : '');
+            // 默认选中第一个活跃的赛季，如果没有则选 default
+            if (season.isActive || (season.id === 'default' && !sortedSeasons.some(s => s.isActive))) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        // 为筛选器添加"全部赛季"选项
+        if (select.id !== 'season-select') {
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = '全部赛季';
+            allOption.selected = true;
+            select.insertBefore(allOption, select.firstChild);
         }
-
+    });
+}
         // 设置事件监听器
         function setupEventListeners() {
             // 标签页切换
@@ -4359,6 +4365,10 @@ function createModal(id, title, innerHTML) {
         ${innerHTML}
     </div>`;
     return modal;
+}
+
+function updateAllTitles() {
+    // 留空，或未来用于刷新称号
 }
 
     </script>
