@@ -707,6 +707,33 @@ table th {
     background-color: #27ae60 !important;
 }
 
+        /* v4：移动端勾选与汇总 */
+        @media (max-width: 768px) {
+            .game-check, #select-all-games {
+                width: 20px;
+                height: 20px;
+            }
+            #games-table {
+                font-size: 0.78rem;
+            }
+            #games-table th, #games-table td {
+                padding: 8px 6px;
+            }
+            #selected-count {
+                font-size: 0.9rem;
+            }
+            #season-summary .card-title,
+            #season-seat-summary .card-title {
+                font-size: 1.1rem;
+            }
+            #season-seat-summary table,
+            #season-summary table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+
         @media (max-width: 768px) {
             .player-list, .stats-grid {
                 grid-template-columns: 1fr;
@@ -748,9 +775,9 @@ table th {
         
         <div class="tabs">
             <div class="tab active" data-tab="record">战绩记录</div>
-            <div class="tab" data-tab="view">数据查看</div>
-            <div class="tab" data-tab="players">玩家统计</div>
-            <div class="tab" data-tab="analysis">对局分析</div>
+            <div class="tab" data-tab="view">历史战绩</div>
+            <div class="tab" data-tab="players">赛季汇总</div>
+            <div class="tab" data-tab="analysis">个人数据</div>
             <div class="tab" data-tab="trends">趋势图表</div>
             <div class="tab" data-tab="seasons">赛季管理</div>
             <div class="tab" data-tab="player-mgmt">玩家管理</div>
@@ -885,7 +912,7 @@ table th {
         
         <div class="tab-content" id="view-tab">
             <div class="card">
-                <h2 class="card-title">所有对局记录</h2>
+                <h2 class="card-title">历史战绩</h2>
                 <div class="form-group">
                     <label for="view-season-filter">赛季筛选</label>
                     <select id="view-season-filter">
@@ -893,9 +920,15 @@ table th {
                         <!-- 赛季选项将通过JavaScript动态添加 -->
                     </select>
                 </div>
+                <div class="btn-group" style="align-items:center; gap:10px; margin-bottom:10px;">
+                    <span id="selected-count" style="color:#666;">已选 0 局</span>
+                    <button id="summarize-selected" class="btn-success" disabled>汇总选中</button>
+                    <button id="clear-selection" class="btn-warning">清空选择</button>
+                </div>
                 <table id="games-table">
                     <thead>
                         <tr>
+                            <th style="width:32px;"><input type="checkbox" id="select-all-games" title="全选"></th>
                             <th>日期</th>
                             <th>赛季</th>
                             <th>形式</th>
@@ -916,7 +949,7 @@ table th {
         
 <div class="tab-content" id="players-tab">
     <div class="card">
-        <h2 class="card-title">玩家统计概览</h2>
+        <h2 class="card-title">赛季汇总</h2>
         <div class="form-group">
             <label for="player-season-filter">赛季筛选</label>
             <select id="player-season-filter">
@@ -924,9 +957,11 @@ table th {
                 <!-- 赛季选项将通过JavaScript动态添加 -->
             </select>
         </div>
+        <div id="season-summary"></div>
         <div class="player-list" id="players-stats">
             <!-- 玩家统计将通过JavaScript动态添加 -->
         </div>
+        <div id="season-seat-summary"></div>
     </div>
     
     <div class="card">
@@ -953,7 +988,7 @@ table th {
                 <li>称号会在玩家卡片和分析页面显示</li>
                 <li>条件满足后称号会自动授予，无需手动申请</li>
                 <li><strong>赛季称号</strong>：赛季冠军 / 亚军 / 季军 —— 按该赛季总积分排名，且赛季对局数 ≥ 5</li>
-                <li><strong>十万分雀圣</strong>：任意一局分数达到 100,000</li>
+                <li><strong>赛季最高打点</strong>：该赛季单局最高分，与赛季冠军一样按赛季归属，并列都发</li>
                 <li><strong>头名赏</strong>：赛季冠军的奖励分，在创建赛季时填写，仅展示、不计入积分</li>
             </ul>
         </div>
@@ -961,7 +996,7 @@ table th {
 </div>  <!-- 这是players-tab的正确闭合位置 -->
         <div class="tab-content" id="analysis-tab">
             <div class="card">
-                <h2 class="card-title">玩家对局分析</h2>
+                <h2 class="card-title">个人数据</h2>
                 <div class="form-group">
                     <label for="analysis-player">选择玩家</label>
                     <select id="analysis-player">
@@ -1065,6 +1100,7 @@ table th {
             <div class="card">
                 <h2 class="card-title">数据导入/导出</h2>
                 <p>使用以下功能备份您的数据或与他人共享。</p>
+                <p style="color:#c55a11; font-size:0.9rem;"><strong>提示：</strong>只有「导出 JSON」是完整备份（含赛季、座位、阶段、隐藏玩家、役满）；Excel 用于对账与查看，导出再导入会丢失部分字段。</p>
                 
                 <div class="btn-group">
                     <button id="export-excel" class="btn-success">导出Excel文件</button>
@@ -1072,6 +1108,7 @@ table th {
                     <button id="export-json" class="btn-success">导出JSON数据</button>
                     <button id="import-json" class="btn-warning">导入JSON数据</button>
                     <button id="sync-data" class="btn-success">手动同步数据</button>
+                    <button id="health-check" class="btn-warning">数据体检</button>
                     <button id="clear-data" class="btn-danger">清空所有数据</button>
                 </div>
                 
@@ -1263,6 +1300,58 @@ table th {
             const d = date || new Date();
             const pad = n => String(n).padStart(2, '0');
             return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+
+        // 修复：记录引用了不存在的赛季时自动补一个（用于导入或赛季表丢失的情况）
+        function repairSeasons() {
+            let changed = false;
+            Object.keys(seasons).forEach(key => {
+                const s = seasons[key];
+                if (!s || typeof s !== 'object') { delete seasons[key]; changed = true; return; }
+                if (!s.id || s.id !== key) { s.id = key; changed = true; }
+                if (!Array.isArray(s.players)) { s.players = []; changed = true; }
+                if (!s.teams) { s.teams = {}; changed = true; }
+                if (!Array.isArray(s.phases)) { s.phases = []; changed = true; }
+            });
+
+            const missing = {};
+            gameRecords.forEach(r => {
+                if (!r.seasonId) { r.seasonId = 'default'; changed = true; }
+                if (!seasons[r.seasonId]) {
+                    (missing[r.seasonId] = missing[r.seasonId] || []).push(r);
+                    changed = true;
+                }
+            });
+
+            let recovered = 0;
+            Object.keys(missing).forEach(sid => {
+                const recs = missing[sid];
+                const dates = recs.map(r => r.date).filter(Boolean).sort();
+                const names = [];
+                recs.forEach(r => (r.players || []).forEach(p => {
+                    if (p && names.indexOf(p) === -1) names.push(p);
+                }));
+                seasons[sid] = {
+                    id: sid,
+                    name: '恢复赛季 ' + (dates.length ? dates[0] + ' ~ ' + dates[dates.length - 1] : sid),
+                    start: dates[0] || '',
+                    end: dates[dates.length - 1] || '',
+                    players: names,
+                    isActive: false,
+                    isTeamSeason: false,
+                    teams: {},
+                    phases: [],
+                    firstPrize: 0,
+                    recovered: true
+                };
+                recovered++;
+            });
+
+            if (changed) {
+                localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+                localStorage.setItem('mahjongRecords', JSON.stringify(gameRecords));
+            }
+            return recovered;
         }
 
         // HTML 转义：所有用户文本拼进 innerHTML 前都要过一遍
@@ -1554,6 +1643,9 @@ function recalcRecordPoints(record) {
             if (!Array.isArray(season.players)) season.players = [...players];
         });
 
+        // 记录里引用了不存在的赛季 → 自动恢复，避免“战绩还在、分组没了”
+        repairSeasons();
+
 // 役满名称列表（含特殊形态）
 const yakumanList = [
     "大三元", "大四喜", "字一色", "清老头", "绿一色",
@@ -1619,34 +1711,46 @@ loadYakumanDataFromStorage();  // 新增：初始化役满数据
 function initializeSeasonSelects() {
     const seasonSelects = document.querySelectorAll('#season-select, #view-season-filter, #player-season-filter, #analysis-season-filter, #trend-season');
     seasonSelects.forEach(select => {
-        // 清空现有选项
+        const keepValue = select.value;
+        const isEntry = select.id === 'season-select';
         select.innerHTML = '';
-        
-        // 赛季数组：按 active 排前面，同状态下按 id（可改为名称）
-        const sortedSeasons = Object.values(seasons).sort((a, b) => {
-            if (a.isActive === b.isActive) return 0;
-            return a.isActive ? -1 : 1;  // active 的在前
+
+        // 录入下拉不显示已归档赛季；筛选项保留
+        let list = Object.values(seasons).filter(s => s && s.id);
+        if (isEntry) list = list.filter(s => !s.archived);
+
+        const sortedSeasons = list.sort((a, b) => {
+            if (!!a.isActive === !!b.isActive) return 0;
+            return a.isActive ? -1 : 1;
         });
-        
-        // 添加赛季选项
+
+        let activeSelected = false;
         sortedSeasons.forEach(season => {
             const option = document.createElement('option');
             option.value = season.id;
-            option.textContent = season.name + (season.isActive ? ' (进行中)' : '');
-            // 默认选中第一个活跃的赛季，如果没有则选 default
-            if (season.isActive || (season.id === 'default' && !sortedSeasons.some(s => s.isActive))) {
+            option.textContent = season.name +
+                (season.isActive ? ' (进行中)' : '') +
+                (season.archived ? ' (已归档)' : '');
+            if (!activeSelected && season.isActive) {
                 option.selected = true;
+                activeSelected = true;
             }
             select.appendChild(option);
         });
-        
-        // 为筛选器添加"全部赛季"选项
-        if (select.id !== 'season-select') {
+        if (isEntry && !activeSelected && sortedSeasons.length) {
+            sortedSeasons[0].selected = true;
+        }
+
+        if (!isEntry) {
             const allOption = document.createElement('option');
             allOption.value = 'all';
             allOption.textContent = '全部赛季';
             allOption.selected = true;
             select.insertBefore(allOption, select.firstChild);
+        }
+
+        if (keepValue && Array.prototype.some.call(select.options, o => o.value === keepValue)) {
+            select.value = keepValue;
         }
     });
 }
@@ -1806,6 +1910,34 @@ document.getElementById('player-analysis-content').addEventListener('click', fun
                 });
             });
             
+            // 历史战绩：勾选与汇总
+            const gamesListBox = document.getElementById('games-list');
+            if (gamesListBox) {
+                gamesListBox.addEventListener('change', function (e) {
+                    if (e.target && e.target.classList.contains('game-check')) updateSelectedCount();
+                });
+            }
+            const selectAllBox = document.getElementById('select-all-games');
+            if (selectAllBox) {
+                selectAllBox.addEventListener('change', function () {
+                    document.querySelectorAll('.game-check').forEach(cb => { cb.checked = this.checked; });
+                    updateSelectedCount();
+                });
+            }
+            const healthBtn = document.getElementById('health-check');
+            if (healthBtn) healthBtn.addEventListener('click', runHealthCheck);
+
+            const sumBtn = document.getElementById('summarize-selected');
+            if (sumBtn) sumBtn.addEventListener('click', summarizeSelectedGames);
+            const clearSelBtn = document.getElementById('clear-selection');
+            if (clearSelBtn) {
+                clearSelBtn.addEventListener('click', function () {
+                    document.querySelectorAll('.game-check').forEach(cb => { cb.checked = false; });
+                    if (selectAllBox) selectAllBox.checked = false;
+                    updateSelectedCount();
+                });
+            }
+
             // 赛季切换时刷新「阶段」下拉
             document.getElementById('season-select').addEventListener('change', updateGamePhaseOptions);
             document.getElementById('view-season-filter').addEventListener('change', loadGameRecords);
@@ -2101,6 +2233,57 @@ const rankedPlayers = calculateRankingsAndPoints(gameType, playerScoreList);
 
         // 加载游戏记录
        // 修改 loadGameRecords 函数中的积分计算部分
+        // 更新“已选 N 局”
+        function updateSelectedCount() {
+            const boxes = Array.prototype.slice.call(document.querySelectorAll('.game-check'));
+            const checked = boxes.filter(b => b.checked).length;
+            const label = document.getElementById('selected-count');
+            if (label) label.textContent = '已选 ' + checked + ' 局';
+            const btn = document.getElementById('summarize-selected');
+            if (btn) btn.disabled = checked === 0;
+            const all = document.getElementById('select-all-games');
+            if (all) all.checked = boxes.length > 0 && checked === boxes.length;
+        }
+
+        // 汇总选中对局：每人场次 + 总积分（按当前规则重算）
+        function summarizeSelectedGames() {
+            const ids = Array.prototype.slice.call(document.querySelectorAll('.game-check:checked'))
+                .map(b => b.getAttribute('data-id'));
+            if (!ids.length) { alert('请先勾选对局'); return; }
+
+            const records = gameRecords.filter(r => ids.indexOf(String(r.id)) !== -1);
+            const map = {};
+            records.forEach(r => {
+                const ranked = calculateRankingsAndPoints(
+                    r.type,
+                    (r.players || []).map((p, i) => ({ player: p, score: Number(r.scores[i]) }))
+                );
+                ranked.forEach(row => {
+                    if (!map[row.player]) map[row.player] = { games: 0, points: 0 };
+                    map[row.player].games += 1;
+                    map[row.player].points += row.totalPoints;
+                });
+            });
+
+            const list = Object.keys(map).map(n => ({
+                name: n, games: map[n].games, points: map[n].points
+            })).sort((a, b) => b.points - a.points);
+
+            const rowsHtml = list.map((r, i) =>
+                `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${r.games}</td><td><strong>${r.points.toFixed(2)}</strong></td></tr>`
+            ).join('');
+
+            const html = '<p style="color:#666;">共 ' + records.length + ' 局，积分按当前规则重算</p>' +
+                '<table><thead><tr><th>名次</th><th>玩家</th><th>场次</th><th>总积分</th></tr></thead><tbody>' +
+                rowsHtml + '</tbody></table>' +
+                '<div class="btn-group" style="margin-top:15px;">' +
+                '<button class="btn-danger" onclick="this.closest(\'.modal\').remove()">关闭</button></div>';
+
+            const modal = createModal('summary-modal', '积分汇总', html);
+            document.body.appendChild(modal);
+            modal.style.display = 'flex';
+        }
+
 function loadGameRecords() {
     const gamesList = document.getElementById('games-list');
     gamesList.innerHTML = '';
@@ -2155,6 +2338,7 @@ const hasTie = positions.some(p => !Number.isInteger(p));
         const seasonName = season ? season.name : '未知赛季';
         
         row.innerHTML = `
+            <td><input type="checkbox" class="game-check" data-id="${record.id}"></td>
             <td>${record.date}</td>
             <td>${seasonName}</td>
             <td>${record.type}</td>
@@ -2440,23 +2624,49 @@ function calculatePlayerTitles(stats) {
             return rows;
         }
 
-        // 返回 { 玩家名: ['2026春季赛冠军'] }（称号带赛季名）
+        // 返回 { 玩家名: ['2026春季赛冠军', '2026春季赛最高打点'] }（称号带赛季名）
         function seasonTitlesFor(seasonId) {
             const season = seasons[seasonId];
             const prefix = season && season.name ? season.name : '赛季';
             const map = {};
-            calculateSeasonRanking(seasonId, 5).forEach((row, idx) => {
-                const label = idx === 0 ? '冠军' : idx === 1 ? '亚军' : idx === 2 ? '季军' : null;
+            const ranking = calculateSeasonRanking(seasonId, 5);
+
+            // 积分相同则并列同名次
+            let lastPoints = null;
+            let lastRank = 0;
+            ranking.forEach((row, idx) => {
+                const rank = (lastPoints !== null && row.points === lastPoints) ? lastRank : idx + 1;
+                lastPoints = row.points;
+                lastRank = rank;
+                const label = rank === 1 ? '冠军' : rank === 2 ? '亚军' : rank === 3 ? '季军' : null;
                 if (label) map[row.name] = (map[row.name] || []).concat(prefix + label);
             });
-            return map;
-        }
 
-        // 单局成就类称号
-        function achievementTitles(name) {
-            const out = [];
-            if (getPlayerRecords(name).some(r => Number(r.score) >= 100000)) out.push('十万分雀圣');
-            return out;
+            // 最高打点
+            let best = -Infinity;
+            gameRecords.forEach(r => {
+                if (r.seasonId !== seasonId) return;
+                (r.scores || []).forEach(v => {
+                    const num = Number(v);
+                    if (num > best) best = num;
+                });
+            });
+            if (isFinite(best)) {
+                const holders = [];
+                gameRecords.forEach(r => {
+                    if (r.seasonId !== seasonId) return;
+                    (r.scores || []).forEach((v, i) => {
+                        if (Number(v) === best) {
+                            const nm = (r.players || [])[i];
+                            if (nm && holders.indexOf(nm) === -1) holders.push(nm);
+                        }
+                    });
+                });
+                holders.forEach(nm => {
+                    map[nm] = (map[nm] || []).concat(prefix + '最高打点');
+                });
+            }
+            return map;
         }
 
         // 更新玩家卡片
@@ -2496,7 +2706,7 @@ function updatePlayerCards() {
     // 显示排序后的玩家卡片
     playerStatsArray.forEach(item => {
         const { player, stats } = item;
-        const playerTitles = achievementTitles(player).concat(calculatePlayerTitles(stats));
+        const playerTitles = calculatePlayerTitles(stats);
         
         const playerCard = document.createElement('div');
         playerCard.className = 'player-card';
@@ -2537,8 +2747,18 @@ playerCard.innerHTML = `
         <button class="btn-success export-card-btn" data-player="${player}" style="margin-top: 10px; font-size: 0.8rem; padding: 5px 10px;">导出卡片</button>
     </div>
 `;        
+        const seatDetails = document.createElement('details');
+        seatDetails.style.cssText = 'margin-top:10px; text-align:left;';
+        seatDetails.innerHTML =
+            '<summary style="cursor:pointer; color:#2e75b6; font-size:0.85rem;">座位数据（前二率）</summary>' +
+            renderSeatTable(stats.seatStats);
+        playerCard.appendChild(seatDetails);
+
         playersStats.appendChild(playerCard);
     });
+
+    renderSeasonSummary();
+    renderSeasonSeatSummary();
 }
 
         // 更新详细统计
@@ -2599,7 +2819,8 @@ playerCard.innerHTML = `
     if (seasonFilter && seasonFilter !== 'all') {
         (seasonTitlesFor(seasonFilter)[playerName] || []).forEach(t => seasonTitleList.push(t));
     } else {
-        Object.keys(seasons).forEach(sid => {
+        // 只算该玩家实际出场过的赛季，避免赛季多时变慢
+        Array.from(new Set(getPlayerRecords(playerName).map(r => r.seasonId))).forEach(sid => {
             (seasonTitlesFor(sid)[playerName] || []).forEach(t => seasonTitleList.push(t));
         });
     }
@@ -2787,6 +3008,8 @@ playerCard.innerHTML = `
             </div>
         </div>
     `;
+
+    analysisHTML += renderPlayerInsights(playerName, stats);
 
     document.getElementById('player-analysis-content').innerHTML = analysisHTML;
 
@@ -3147,31 +3370,243 @@ averageRawScore: playerRecords.reduce((sum, r) => sum + r.score, 0) / totalGames
 
 // 新增：计算连胜统计函数
 // 座位统计：只统计填写了起家的对局
-function calculateSeatStats(playerRecords) {
+function emptySeatAcc() {
+    return { games: 0, scoreSum: 0, positionSum: 0, ranks: [0, 0, 0, 0] };
+}
+
+// 把一局的名次累加进座位统计（并列按 0.5 / 0.5 拆）
+function addSeatResult(acc, seat, position, score) {
+    if (!seat || !acc[seat]) return;
+    const pos = Number(position) || 4;
+    const lo = Math.floor(pos);
+    const hi = Math.ceil(pos);
+    acc[seat].games += 1;
+    acc[seat].scoreSum += Number(score) || 0;
+    acc[seat].positionSum += pos;
+    if (lo === hi) {
+        acc[seat].ranks[lo - 1] += 1;
+    } else {
+        acc[seat].ranks[lo - 1] += 0.5;
+        acc[seat].ranks[hi - 1] += 0.5;
+    }
+}
+
+function seatAccToRows(acc) {
     const labels = { 1: '东起', 2: '南起', 3: '西起', 4: '北起' };
-    const acc = {};
-    [1, 2, 3, 4].forEach(s => { acc[s] = { games: 0, scoreSum: 0, positionSum: 0, top: 0, last: 0 }; });
-    playerRecords.forEach(r => {
-        const seat = Number(r.seat);
-        if (!seat || !acc[seat]) return;
-        acc[seat].games += 1;
-        acc[seat].scoreSum += Number(r.score) || 0;
-        acc[seat].positionSum += Number(r.position) || 0;
-        if (Number(r.position) === 1) acc[seat].top += 1;
-        if (Math.floor(Number(r.position) || 4) === 4) acc[seat].last += 1;
-    });
     return [1, 2, 3, 4].map(seat => {
         const a = acc[seat];
+        const g = a.games;
+        const rate = i => (g ? a.ranks[i] / g : 0);
         return {
             seat: seat,
             label: labels[seat],
-            games: a.games,
-            avgScore: a.games ? a.scoreSum / a.games : 0,
-            avgPosition: a.games ? a.positionSum / a.games : 0,
-            topRate: a.games ? a.top / a.games : 0,
-            lastRate: a.games ? a.last / a.games : 0
+            games: g,
+            avgScore: g ? a.scoreSum / g : 0,
+            avgPosition: g ? a.positionSum / g : 0,
+            topRate: rate(0),
+            secondRate: rate(1),
+            thirdRate: rate(2),
+            lastRate: rate(3),
+            topTwoRate: g ? (a.ranks[0] + a.ranks[1]) / g : 0
         };
     });
+}
+
+// 座位统计：只统计填写了起家的对局
+function calculateSeatStats(playerRecords) {
+    const acc = {};
+    [1, 2, 3, 4].forEach(s => { acc[s] = emptySeatAcc(); });
+    playerRecords.forEach(r => {
+        addSeatResult(acc, Number(r.seat), r.position, r.score);
+    });
+    return seatAccToRows(acc);
+}
+
+// 当前筛选赛季（选“全部”时用活跃赛季做总结）
+function currentSummarySeasonId() {
+    const filter = document.getElementById('player-season-filter').value;
+    return (filter && filter !== 'all') ? filter : activeSeasonId();
+}
+
+// 赛季总结：冠军 / 亚军 / 季军 / 最高打点
+function renderSeasonSummary() {
+    const box = document.getElementById('season-summary');
+    if (!box) return;
+    const sid = currentSummarySeasonId();
+    const season = seasons[sid];
+    if (!season) { box.innerHTML = ''; return; }
+
+    const ranking = calculateSeasonRanking(sid, 5);
+    if (!ranking.length) { box.innerHTML = ''; return; }
+
+    let lastPoints = null;
+    let lastRank = 0;
+    const groups = { 1: [], 2: [], 3: [] };
+    ranking.forEach((row, idx) => {
+        const rank = (lastPoints !== null && row.points === lastPoints) ? lastRank : idx + 1;
+        lastPoints = row.points;
+        lastRank = rank;
+        if (rank <= 3) groups[rank].push(row);
+    });
+
+    let best = -Infinity;
+    gameRecords.forEach(r => {
+        if (r.seasonId !== sid) return;
+        (r.scores || []).forEach(v => {
+            const num = Number(v);
+            if (num > best) best = num;
+        });
+    });
+    const holders = [];
+    if (isFinite(best)) {
+        gameRecords.forEach(r => {
+            if (r.seasonId !== sid) return;
+            (r.scores || []).forEach((v, i) => {
+                if (Number(v) === best) {
+                    const nm = (r.players || [])[i];
+                    if (nm && holders.indexOf(nm) === -1) holders.push(nm);
+                }
+            });
+        });
+    }
+
+    const gameCount = gameRecords.filter(r => r.seasonId === sid).length;
+    const line = (title, arr) => arr.length
+        ? '<p><strong>' + title + '：</strong>' +
+          arr.map(r => escapeHtml(r.name) + '（' + r.points.toFixed(1) + ' 分）').join('、') + '</p>'
+        : '';
+
+    box.innerHTML = '<div class="card" style="margin-top:15px;">' +
+        '<h2 class="card-title">赛季总结 · ' + escapeHtml(season.name) + '</h2>' +
+        '<p style="color:#666;">共 ' + gameCount + ' 局，' + ranking.length + ' 位玩家参与</p>' +
+        line('冠军', groups[1]) +
+        line('亚军', groups[2]) +
+        line('季军', groups[3]) +
+        (isFinite(best)
+            ? '<p><strong>最高打点：</strong>' + best.toLocaleString() +
+              '（' + holders.map(escapeHtml).join('、') + '）</p>'
+            : '') +
+        '</div>';
+}
+
+// 全赛季座位胜率：不分玩家，看哪个座位最旺
+function renderSeasonSeatSummary() {
+    const box = document.getElementById('season-seat-summary');
+    if (!box) return;
+
+    const filter = document.getElementById('player-season-filter').value;
+    const sid = (filter && filter !== 'all') ? filter : null;
+    const acc = {};
+    [1, 2, 3, 4].forEach(k => { acc[k] = emptySeatAcc(); });
+
+    visiblePlayers().forEach(name => {
+        let recs = getPlayerRecords(name);
+        if (sid) recs = recs.filter(r => r.seasonId === sid);
+        recs.forEach(r => addSeatResult(acc, Number(r.seat), r.position, r.score));
+    });
+
+    const rows = seatAccToRows(acc);
+    if (!rows.some(r => r.games > 0)) { box.innerHTML = ''; return; }
+
+    const ranked = rows.filter(r => r.games >= 3).sort((a, b) => b.topTwoRate - a.topTwoRate);
+    const best = ranked[0];
+    const worst = ranked[ranked.length - 1];
+    const highlight = best ? { bestTopTwo: best.topTwoRate } : null;
+    const verdict = ranked.length >= 2
+        ? '<p style="color:#666;">最旺：<strong>' + best.label + '</strong>（前二率 ' +
+          (best.topTwoRate * 100).toFixed(1) + '%）　最倒霉：<strong>' + worst.label +
+          '</strong>（前二率 ' + (worst.topTwoRate * 100).toFixed(1) + '%）</p>'
+        : '';
+
+    box.innerHTML = '<div class="card" style="margin-top:15px;">' +
+        '<h2 class="card-title">全赛季座位胜率</h2>' +
+        '<p style="color:#888; font-size:0.85rem;">统计所有玩家在该座位上的表现；' +
+        '每人至少 3 局才参与“最旺 / 最倒霉”评比。</p>' +
+        verdict + renderSeatTable(rows, highlight) + '</div>';
+}
+
+        // 个人数据页的“数据解读”
+        function renderPlayerInsights(playerName, stats) {
+            const games = stats.totalGames || 0;
+            if (!games) return '';
+
+            const elo = computeAllElo();
+            const rating = elo.ratings[playerName];
+            const hist = (elo.history[playerName] || []).slice(-20);
+
+            let html = '<h3>数据解读</h3>';
+            html += '<div class="stat-card" style="text-align:left; margin-bottom:15px;">' +
+                '<div class="stat-label">Elo 分（起始 70，100 封顶，越高越难涨）</div>' +
+                '<div class="stat-value" style="font-size:1.7rem;">' +
+                (rating !== undefined ? rating.toFixed(1) : '-') + '</div>' +
+                '<div style="color:#888; font-size:0.85rem;">近 ' + hist.length + ' 局走势：' +
+                hist.map(h => h.rating.toFixed(1)).join(' → ') + '</div>' +
+                '<div style="color:#888; font-size:0.8rem; margin-top:4px;">生涯 Elo，不受上方赛季筛选影响</div>' +
+                '</div>';
+
+            if (games < 10) {
+                html += '<p style="color:#888;">样本过少（当前 ' + games + ' 局），暂不生成风格与对手结论。' +
+                    '累计 30 局以上参考价值更高。</p>';
+                return html;
+            }
+
+            const style = styleProfile(stats);
+            const desc = style.label === '稳健'
+                ? '四位率与被飞率都低，倾向保守收分。'
+                : (style.label === '激进'
+                    ? '一位率高、同时四位率也偏高，属于高风险高回报。'
+                    : '攻守比较平衡，没有明显偏科。');
+            html += '<p><strong>风格：</strong>' + style.label +
+                '（激进指数 ' + style.score.toFixed(0) + ' / 100）——' + desc + '</p>';
+
+            // 对手强弱
+            const minGames = games >= 30 ? 5 : 3;
+            const opps = Object.keys(stats.opponentStats || {}).map(name => {
+                const o = stats.opponentStats[name];
+                return { name: name, games: o.games, winRate: o.winRate || 0, avgScoreDiff: o.avgScoreDiff || 0 };
+            }).filter(o => o.games >= minGames && o.games > 0);
+
+            if (!opps.length) {
+                html += '<p style="color:#888;">交手达到 ' + minGames + ' 局的对手还不够，暂不生成对手结论。</p>';
+                return html;
+            }
+
+            const desc2 = list => list.map(o =>
+                escapeHtml(o.name) + '（' + o.games + ' 局，胜率 ' + (o.winRate * 100).toFixed(0) + '%）'
+            ).join('、');
+
+            const best = opps.slice().sort((a, b) => b.winRate - a.winRate).slice(0, 3);
+            const worst = opps.slice().sort((a, b) => a.winRate - b.winRate).slice(0, 3);
+
+            html += '<p><strong>最擅长打：</strong>' + desc2(best) + '</p>';
+            html += '<p><strong>最难打：</strong>' + desc2(worst) + '</p>';
+            if (games < 30) {
+                html += '<p style="color:#888; font-size:0.85rem;">注：当前只有 ' + games +
+                    ' 局，交手样本有限，结论仅供参考。</p>';
+            }
+            return html;
+        }
+
+function renderSeatTable(seatStats, highlight) {
+    const rows = seatStats || [];
+    const pct = (v, g) => (g ? (v * 100).toFixed(1) + '%' : '-');
+    return '<table style="font-size:0.85rem;">' +
+        '<thead><tr><th>起家</th><th>局数</th><th>前二率</th>' +
+        '<th>一位率</th><th>二位率</th><th>三位率</th><th>四位率</th><th>平均顺位</th></tr></thead><tbody>' +
+        rows.map(r => {
+            const best = highlight && r.games >= 3 && r.topTwoRate === highlight.bestTopTwo;
+            return `<tr${best ? ' style="background:#fff9e6;"' : ''}>
+                <td>${r.label}</td>
+                <td>${r.games}</td>
+                <td><strong>${pct(r.topTwoRate, r.games)}</strong></td>
+                <td>${pct(r.topRate, r.games)}</td>
+                <td>${pct(r.secondRate, r.games)}</td>
+                <td>${pct(r.thirdRate, r.games)}</td>
+                <td>${pct(r.lastRate, r.games)}</td>
+                <td>${r.games ? r.avgPosition.toFixed(2) : '-'}</td>
+            </tr>`;
+        }).join('') +
+        '</tbody></table>';
 }
 
 function renderSeatStats(seatStats) {
@@ -3179,21 +3614,64 @@ function renderSeatStats(seatStats) {
     const used = rows.filter(r => r.games > 0);
     if (!used.length) {
         return '<h3>座位统计</h3><p style="color:#888;">暂无座位数据。录入对局时填写“起家”后，' +
-            '这里会统计每个座位的平均点数、平均顺位与一位/四位率。</p>';
+            '这里会统计每个座位的局数、一二三四位率与前二率。</p>';
     }
-    return '<h3>座位统计</h3>' +
-        '<table><thead><tr><th>起家</th><th>局数</th><th>平均点数</th>' +
-        '<th>平均顺位</th><th>一位率</th><th>四位率</th></tr></thead><tbody>' +
-        rows.map(r => `<tr>
-            <td>${r.label}</td>
-            <td>${r.games}</td>
-            <td>${r.games ? r.avgScore.toFixed(0) : '-'}</td>
-            <td>${r.games ? r.avgPosition.toFixed(2) : '-'}</td>
-            <td>${r.games ? (r.topRate * 100).toFixed(1) + '%' : '-'}</td>
-            <td>${r.games ? (r.lastRate * 100).toFixed(1) + '%' : '-'}</td>
-        </tr>`).join('') +
-        '</tbody></table>';
+    return '<h3>座位统计</h3>' + renderSeatTable(rows);
 }
+
+        // Elo：起始 70，100 封顶，越高越难涨（非零和）
+        function computeAllElo() {
+            const sorted = gameRecords.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+            const R = {};
+            const history = {};
+
+            sorted.forEach(r => {
+                const names = r.players || [];
+                names.forEach(p => { if (R[p] === undefined) R[p] = 70; });
+
+                const ranked = calculateRankingsAndPoints(
+                    r.type,
+                    names.map((p, i) => ({ player: p, score: Number(r.scores[i]) }))
+                );
+                const deltas = {};
+
+                ranked.forEach(row => {
+                    const opps = ranked.filter(o => o.player !== row.player);
+                    if (!opps.length) { deltas[row.player] = 0; return; }
+
+                    let expected = 0;
+                    opps.forEach(o => {
+                        expected += 1 / (1 + Math.pow(10, (R[o.player] - R[row.player]) / 50));
+                    });
+                    expected /= opps.length;
+
+                    const actual = (4 - row.position) / 3;
+                    const decay = Math.max(0.05, Math.min(1, (100 - R[row.player]) / 40));
+                    deltas[row.player] = 8 * (actual - expected) * decay;
+                });
+
+                ranked.forEach(row => {
+                    R[row.player] = Math.max(30, Math.min(100, R[row.player] + deltas[row.player]));
+                    (history[row.player] = history[row.player] || []).push({
+                        date: r.date,
+                        rating: R[row.player],
+                        delta: deltas[row.player]
+                    });
+                });
+            });
+
+            return { ratings: R, history: history };
+        }
+
+        // 风格：0 稳健 → 100 激进
+        function styleProfile(stats) {
+            const top = stats.positionRates[0] || 0;
+            const last = stats.positionRates[3] || 0;
+            const fly = stats.beFlownRate || 0;
+            const score = Math.max(0, Math.min(100, top * 150 + last * 90 + fly * 60 - 25));
+            const label = score < 35 ? '稳健' : (score > 62 ? '激进' : '均衡');
+            return { score: score, label: label };
+        }
 
 function calculateStreakStats(playerRecords) {
     let currentWinStreak = 0;
@@ -3564,6 +4042,41 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
     alert('赛季创建成功！');
 }
 
+        // 重命名赛季
+        function renameSeason(seasonId) {
+            const season = seasons[seasonId];
+            if (!season) return;
+            const name = prompt('赛季名称', season.name);
+            if (name === null) return;
+            const trimmed = name.trim();
+            if (!trimmed) { alert('名称不能为空'); return; }
+            season.name = trimmed;
+            delete season.recovered;
+            localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+            initializeSeasonSelects();
+            loadSeasonsList();
+            updatePlayerStats();
+        }
+
+        // 归档：不再出现在录入下拉，筛选与统计保留
+        function toggleArchiveSeason(seasonId) {
+            const season = seasons[seasonId];
+            if (!season) return;
+            if (!season.archived) {
+                if (season.isActive) {
+                    alert('进行中的赛季不能归档，请先把其它赛季设为活跃');
+                    return;
+                }
+                if (!confirm(`归档「${season.name}」？\n\n归档后不再出现在新增对局的赛季下拉里，历史记录与统计不受影响。`)) return;
+                season.archived = true;
+            } else {
+                season.archived = false;
+            }
+            localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+            initializeSeasonSelects();
+            loadSeasonsList();
+        }
+
         // 加载赛季列表
         function loadSeasonsList() {
             const seasonsList = document.getElementById('seasons-list');
@@ -3577,9 +4090,39 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                 const playerCount = season.players.length;
                 const gameCount = gameRecords.filter(record => record.seasonId === season.id).length;
                 const seasonRanking = calculateSeasonRanking(season.id, 5);
-                const championHtml = seasonRanking.length
-                    ? '<p><strong>赛季称号:</strong> <span class="title-badge">' +
-                      escapeHtml(season.name) + '冠军 · ' + escapeHtml(seasonRanking[0].name) + '</span></p>'
+                const championNames = seasonRanking.length
+                    ? seasonRanking.filter(r => r.points === seasonRanking[0].points).map(r => r.name)
+                    : [];
+                const championHtml = championNames.length
+                    ? '<p><strong>赛季称号:</strong> ' + championNames.map(n =>
+                        '<span class="title-badge">' + escapeHtml(season.name) + '冠军 · ' + escapeHtml(n) + '</span>'
+                      ).join(' ') + '</p>'
+                    : '';
+
+                // 最高打点（单局最高分，并列都列出）
+                let bestValue = -Infinity;
+                gameRecords.forEach(r => {
+                    if (r.seasonId !== season.id) return;
+                    (r.scores || []).forEach(v => {
+                        const num = Number(v);
+                        if (num > bestValue) bestValue = num;
+                    });
+                });
+                const bestHolders = [];
+                if (isFinite(bestValue)) {
+                    gameRecords.forEach(r => {
+                        if (r.seasonId !== season.id) return;
+                        (r.scores || []).forEach((v, i) => {
+                            if (Number(v) === bestValue) {
+                                const nm = (r.players || [])[i];
+                                if (nm && bestHolders.indexOf(nm) === -1) bestHolders.push(nm);
+                            }
+                        });
+                    });
+                }
+                const bestHtml = bestHolders.length
+                    ? '<p><strong>最高打点:</strong> ' + bestValue.toLocaleString() + '（' +
+                      bestHolders.map(escapeHtml).join('、') + '）</p>'
                     : '';
                 const rankingHtml = seasonRanking.length
                     ? '<p><strong>赛季前三:</strong> ' + seasonRanking.slice(0, 3).map((r, i) =>
@@ -3588,15 +4131,19 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                     : '';
                 
                seasonCard.innerHTML = `
-                    <h3>${escapeHtml(season.name)} ${season.isActive ? '<span class="season-badge">进行中</span>' : ''}</h3>
+                    <h3>${escapeHtml(season.name)} ${season.isActive ? '<span class="season-badge">进行中</span>' : ''} ${season.archived ? '<span class="season-badge" style="background:#95a5a6;">已归档</span>' : ''}</h3>
+                    ${season.recovered ? '<p style="color:#c55a11;"><strong>提示：</strong>该赛季由缺失数据自动恢复，建议点「重命名」改成真实名称。</p>' : ''}
                     <p><strong>时间:</strong> ${season.start} 至 ${season.end}</p>
                     <p><strong>玩家:</strong> ${playerCount}人</p>
                     <p><strong>对局数:</strong> ${gameCount}局</p>
                     <p><strong>头名赏:</strong> ${season.firstPrize || 0} 分</p>
                     ${championHtml}
+                    ${bestHtml}
                     ${rankingHtml}
                     <div class="btn-group">
                         <button class="btn-success set-active-season" data-id="${season.id}">设为活跃</button>
+                        <button class="btn-warning rename-season" data-id="${season.id}">重命名</button>
+                        <button class="btn-warning archive-season" data-id="${season.id}">${season.archived ? '取消归档' : '归档'}</button>
                         <button class="btn-danger delete-season" data-id="${season.id}">删除</button>
                     </div>
                     ${season.isTeamSeason ? `
@@ -3613,6 +4160,18 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                 button.addEventListener('click', function() {
                     const seasonId = this.getAttribute('data-id');
                     setActiveSeason(seasonId);
+                });
+            });
+
+            document.querySelectorAll('.rename-season').forEach(button => {
+                button.addEventListener('click', function() {
+                    renameSeason(this.getAttribute('data-id'));
+                });
+            });
+
+            document.querySelectorAll('.archive-season').forEach(button => {
+                button.addEventListener('click', function() {
+                    toggleArchiveSeason(this.getAttribute('data-id'));
                 });
             });
             
@@ -3949,7 +4508,7 @@ function addYakumanRecord(playerName) {
             const wb = XLSX.utils.book_new();
             
             // 创建总战绩记录表
-            const totalData = [['比赛日期', '赛季', '比赛形式', '局制', '玩家1', '玩家1分数', '玩家2', '玩家2分数', '玩家3', '玩家3分数', '玩家4', '玩家4分数', '对局分析']];
+            const totalData = [['比赛日期', '赛季', '比赛形式', '局制', '玩家1', '玩家1分数', '玩家2', '玩家2分数', '玩家3', '玩家3分数', '玩家4', '玩家4分数', '对局分析', '座位1', '座位2', '座位3', '座位4', '阶段']];
             
             gameRecords.forEach(record => {
                 const seasonName = seasons[record.seasonId]?.name || '默认赛季';
@@ -3966,7 +4525,12 @@ function addYakumanRecord(playerName) {
                     record.scores[2],
                     record.players[3],
                     record.scores[3],
-                    record.notes || ''
+                    record.notes || '',
+                    ...(record.seats || []).map(v => v || ''),
+                    record.phaseId
+                        ? ((seasons[record.seasonId] && seasons[record.seasonId].phases || [])
+                            .filter(p => p.id === record.phaseId)[0] || {}).name || ''
+                        : ''
                 ]);
             });
             
@@ -4012,16 +4576,19 @@ function addYakumanRecord(playerName) {
         }
 
         // 导出到JSON
-        function exportToJSON() {
-            if (gameRecords.length === 0) {
+        function exportToJSON(silent) {
+            if (gameRecords.length === 0 && !silent) {
                 alert('没有数据可导出！');
                 return;
             }
-            
+
             const exportData = {
+                schemaVersion: 4,
                 records: gameRecords,
                 seasons: seasons,
                 players: players,
+                hiddenPlayers: hiddenPlayers,
+                yakuman: yakumanRecords,
                 exportDate: new Date().toISOString()
             };
             
@@ -4051,17 +4618,42 @@ function addYakumanRecord(playerName) {
                     if (file.name.endsWith('.json')) {
                         const data = JSON.parse(e.target.result);
                         importedData = data.records || data;
-                        
-                        // 如果包含赛季数据，也导入
-                        if (data.seasons) {
-                            seasons = { ...seasons, ...data.seasons };
+
+                        // 赛季：按 id 合并，本地已有的字段优先
+                        if (data.seasons && typeof data.seasons === 'object' && !Array.isArray(data.seasons)) {
+                            Object.keys(data.seasons).forEach(id => {
+                                if (!seasons[id]) seasons[id] = data.seasons[id];
+                                else seasons[id] = Object.assign({}, data.seasons[id], seasons[id]);
+                            });
                             localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
                         }
-                        
-                        // 如果包含玩家数据，也导入
-                        if (data.players) {
-                            players = data.players;
+
+                        // 玩家：新设备（还没有对局）直接用备份里的名单，避免混入内置默认名
+                        if (Array.isArray(data.players)) {
+                            if (!gameRecords.length) {
+                                players = data.players.slice();
+                            } else {
+                                data.players.forEach(p => {
+                                    if (p && players.indexOf(p) === -1) players.push(p);
+                                });
+                            }
                             localStorage.setItem('mahjongPlayers', JSON.stringify(players));
+                        }
+
+                        // 隐藏玩家
+                        if (Array.isArray(data.hiddenPlayers)) {
+                            data.hiddenPlayers.forEach(p => {
+                                if (p && hiddenPlayers.indexOf(p) === -1) hiddenPlayers.push(p);
+                            });
+                            saveHiddenPlayers();
+                        }
+
+                        // 役满
+                        if (data.yakuman && typeof data.yakuman === 'object' && !Array.isArray(data.yakuman)) {
+                            Object.keys(data.yakuman).forEach(k => {
+                                if (!yakumanRecords[k]) yakumanRecords[k] = data.yakuman[k];
+                            });
+                            localStorage.setItem('mahjongYakuman', JSON.stringify(yakumanRecords));
                         }
                     } else {
                         // 处理Excel文件
@@ -4098,7 +4690,16 @@ function addYakumanRecord(playerName) {
                                     format: row[3],
                                     players: [row[4], row[6], row[8], row[10]],
                                     scores: [row[5], row[7], row[9], row[11]],
-                                    notes: row[12] || ''
+                                    notes: row[12] || '',
+                                    seats: [row[13], row[14], row[15], row[16]]
+                                        .map(v => (v === undefined || v === null || v === '') ? null : Number(v)),
+                                    phaseId: (function () {
+                                        const name = row[17];
+                                        if (!name) return null;
+                                        const ph = ((seasons[seasonId] && seasons[seasonId].phases) || [])
+                                            .filter(p => p.name === name)[0];
+                                        return ph ? ph.id : null;
+                                    })()
                                 };
                                 importedData.push(record);
                             }
@@ -4159,16 +4760,15 @@ function addYakumanRecord(playerName) {
                     gameRecords = [...gameRecords, ...newRecords];
                     localStorage.setItem('mahjongRecords', JSON.stringify(gameRecords));
                     
+                    // 修复缺失赛季（导入的文件可能没有赛季表）
+                    const recoveredSeasons = repairSeasons();
+
                     // 更新界面
-                    loadGameRecords();
-                    updatePlayerStats();
-                    updateAllTitles();
-                    initializeSeasonSelects();
-                    initializePlayerSelects();
-                    loadPlayersList();
+                    refreshAllViews();
                     
                     alert(`成功导入 ${newRecords.length} 条记录` +
-                        (skippedRows ? `，跳过 ${skippedRows} 条不合格数据` : '') + '！');
+                        (skippedRows ? `，跳过 ${skippedRows} 条不合格数据` : '') +
+                        (recoveredSeasons ? `，恢复 ${recoveredSeasons} 个缺失赛季` : '') + '！');
                     
                 } catch (error) {
                     alert('导入失败: ' + error.message);
@@ -4186,38 +4786,117 @@ function addYakumanRecord(playerName) {
             e.target.value = '';
         }
 
+        // 数据体检：把可能导致“统计对不上”的问题一次列出来
+        function runHealthCheck() {
+            const issues = [];
+            const today = todayLocal();
+            const seasonIds = Object.keys(seasons);
+
+            gameRecords.forEach((r, idx) => {
+                const where = '第 ' + (idx + 1) + ' 条（' + (r.date || '无日期') + '）';
+                const scores = (r.scores || []).map(Number);
+                if (scores.length !== 4 || scores.some(v => !Number.isFinite(v))) {
+                    issues.push(['分数缺失', where, '分数不是 4 个有效数字']);
+                } else {
+                    const total = scores.reduce((a, b) => a + b, 0);
+                    if (total !== 100000) {
+                        issues.push(['合计异常', where, '合计 ' + total + '，应为 100000']);
+                    }
+                }
+                const names = r.players || [];
+                if (names.length !== 4 || new Set(names).size !== 4) {
+                    issues.push(['玩家异常', where, '玩家不足 4 人或存在重复']);
+                }
+                if (r.date && r.date > today) {
+                    issues.push(['未来日期', where, r.date]);
+                }
+                if (!r.seasonId || seasonIds.indexOf(r.seasonId) === -1) {
+                    issues.push(['赛季缺失', where, '赛季 ' + (r.seasonId || '(空)') + ' 不存在']);
+                }
+            });
+
+            Object.keys(seasons).forEach(id => {
+                const season = seasons[id];
+                if (!Array.isArray(season.players) || !season.players.length) {
+                    issues.push(['赛季无名单', '赛季「' + (season.name || id) + '」', 'players 为空']);
+                }
+                if (!season.start || !season.end) {
+                    issues.push(['赛季缺日期', '赛季「' + (season.name || id) + '」', '开始/结束日期为空']);
+                }
+            });
+
+            const rowsHtml = issues.length
+                ? issues.map(i => `<tr><td>${escapeHtml(i[0])}</td><td>${escapeHtml(i[1])}</td><td>${escapeHtml(i[2])}</td></tr>`).join('')
+                : '<tr><td colspan="3" style="text-align:center; color:#2ecc71;">没有发现问题</td></tr>';
+
+            const html = '<p style="color:#666;">共 ' + gameRecords.length + ' 条对局、' +
+                Object.keys(seasons).length + ' 个赛季、' + players.length + ' 位玩家</p>' +
+                (issues.length
+                    ? '<p style="color:#c0392b;">发现 ' + issues.length + ' 处问题：</p>'
+                    : '<p style="color:#2ecc71;">一切正常。</p>') +
+                '<table><thead><tr><th>类型</th><th>位置</th><th>详情</th></tr></thead><tbody>' +
+                rowsHtml + '</tbody></table>' +
+                (issues.some(i => i[0] === '赛季缺失')
+                    ? '<p style="color:#888; font-size:0.85rem;">赛季缺失会在下次打开页面时自动恢复，恢复后可用「赛季管理 → 重命名」改成真实名称。</p>'
+                    : '');
+
+            const modal = createModal('health-modal', '数据体检', html);
+            document.body.appendChild(modal);
+            modal.style.display = 'flex';
+        }
+
         // 清空所有数据
         function clearAllData() {
-            if (confirm('确定要清空所有数据吗？此操作不可撤销！')) {
-                gameRecords = [];
-                players = JSON.parse(localStorage.getItem('mahjongPlayers')) || [
-                    "张锦轩", "邓洋", "寻接发", "易根玲", "黄若雯", 
-                    "黄相阳", "黄雨露", "张杰斌", "周盼", "胡锦鸿"
-                ];
-                seasons = {
-                    "default": {
-                        id: "default",
-                        name: "默认赛季",
-                        start: "2024-01-01",
-                        end: "2024-12-31",
-                        players: players,
-                        isActive: true
-                    }
-                };
-                
-                localStorage.setItem('mahjongRecords', JSON.stringify(gameRecords));
-                localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
-                localStorage.setItem('mahjongPlayers', JSON.stringify(players));
-                
-                loadGameRecords();
-                updatePlayerStats();
-                initializeSeasonSelects();
-                loadSeasonsList();
-                initializePlayerSelects();
-                loadPlayersList();
-                
-                alert('所有数据已清空！');
+            const recordCount = gameRecords.length;
+            const seasonCount = Object.keys(seasons).length;
+            const playerCount = players.length;
+
+            if (!confirm(`确定要清空所有数据吗？\n\n将删除：${recordCount} 条对局、${seasonCount} 个赛季、` +
+                         `${playerCount} 位玩家、役满记录、隐藏名单。\n\n清空前会自动导出一份 JSON 备份。`)) {
+                return;
             }
+
+            // 先备份，再清空
+            try {
+                exportToJSON(true);
+            } catch (err) {
+                console.warn('自动备份失败', err);
+            }
+
+            const answer = prompt('请输入「清空」两个字确认（留空则取消）：');
+            if (answer !== '清空') {
+                alert('已取消，数据未改动。');
+                return;
+            }
+
+            gameRecords = [];
+            players = [];
+            hiddenPlayers = [];
+            yakumanRecords = {};
+            seasons = {
+                default: {
+                    id: 'default',
+                    name: '默认赛季',
+                    start: '',
+                    end: '',
+                    players: [],
+                    isActive: true,
+                    isTeamSeason: false,
+                    teams: {},
+                    phases: [],
+                    firstPrize: 0
+                }
+            };
+
+            localStorage.setItem('mahjongRecords', JSON.stringify([]));
+            localStorage.setItem('mahjongSeasons', JSON.stringify(seasons));
+            localStorage.setItem('mahjongPlayers', JSON.stringify([]));
+            localStorage.setItem('mahjongHiddenPlayers', JSON.stringify([]));
+            localStorage.setItem('mahjongYakuman', JSON.stringify({}));
+            // 云同步地址属于配置，保留
+
+            refreshAllViews();
+            alert('所有数据已清空（同步地址保留）。');
         }
 
 // 新增：导出玩家卡片为图片
