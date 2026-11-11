@@ -710,11 +710,18 @@ table th {
         /* v4：移动端勾选与汇总 */
         /* ===== 战报导出（打印为 PDF） ===== */
         #print-root { display: none; }
+        body.print-mode #print-root { display: block; }
+        body.print-mode > *:not(#print-root) { display: none !important; }
+        body.print-mode { background: #fff; padding: 0 !important; }
+        .report-exit {
+            position: fixed; right: 16px; bottom: 16px; z-index: 99999;
+            padding: 10px 16px; border-radius: 6px; border: none;
+            background: #e74c3c; color: #fff; font-size: 1rem; cursor: pointer;
+        }
         .report-page {
-            width: 186mm;
-            min-height: 268mm;
+            width: 100%;
             box-sizing: border-box;
-            padding: 2mm 1mm;
+            padding: 0;
             page-break-after: always;
             break-after: page;
             color: #222;
@@ -745,11 +752,12 @@ table th {
         .report-foot { color: #999; font-size: 8pt; margin-top: 3mm; text-align: right; }
 
         @media print {
+            html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
             body > *:not(#print-root) { display: none !important; }
-            #print-root { display: block !important; }
-            html, body { background: #fff !important; }
+            #print-root { display: block !important; padding: 0 !important; }
+            .report-exit { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            @page { size: A4 portrait; margin: 12mm; }
+            @page { size: A4 portrait; margin: 10mm; }
         }
 
         @media (max-width: 768px) {
@@ -1177,6 +1185,7 @@ table th {
 
     <!-- 战报打印容器（屏幕上隐藏，打印时显示） -->
     <div id="print-root"></div>
+    <button id="report-exit" class="report-exit" style="display:none;">退出打印模式</button>
 
     <!-- 对局详情模态框 -->
     <div class="modal" id="game-detail-modal">
@@ -2503,6 +2512,7 @@ const hasTie = positions.some(p => !Number.isInteger(p));
             player: player,
             score: score,
             position: saved.position || (index + 1),
+            seat: (record.seats && record.seats[index]) ? Number(record.seats[index]) : null,
             positionPoint: saved.positionPoint !== undefined
                 ? saved.positionPoint.toFixed(2)
                 : ((saved.points || 0) - (score - 30000) / 1000).toFixed(2),
@@ -2522,6 +2532,7 @@ const hasTie = positions.some(p => !Number.isInteger(p));
                         <tr>
                             <th>顺位</th>
                             <th>玩家</th>
+                            <th>座位</th>
                             <th>分数</th>
                             <th>顺位积分</th>
                             <th>点数积分</th>
@@ -2536,6 +2547,7 @@ const hasTie = positions.some(p => !Number.isInteger(p));
                     <tr>
                         <td><span class="position-${Math.floor(player.position)}">${player.position}位</span></td>
                         <td>${player.player}</td>
+                        <td>${player.seat ? seatLabel(player.seat) : '-'}</td>
                         <td>${player.score}</td>
                         <td>${player.positionPoint}</td>
                         <td>${player.scorePoint}</td>
@@ -2624,12 +2636,24 @@ function openEditModal(recordId) {
     record.players.forEach((player, index) => {
         const div = document.createElement('div');
         div.className = 'form-group';
+        const seatNum = (record.seats && record.seats[index]) ? Number(record.seats[index]) : 0;
         div.innerHTML = `
             <label>玩家${index+1}</label>
             <select class="edit-player-select" data-index="${index}" required>
                 ${editOptionPlayers.map(p => `<option value="${escapeHtml(p)}" ${p === player ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
             </select>
-            <input type="number" class="edit-player-score" data-index="${index}" value="${record.scores[index]}" required>
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+                <select class="edit-player-seat" data-index="${index}"
+                        title="起家座位，可留空" style="max-width:150px;">
+                    <option value="">起家(可空)</option>
+                    <option value="1" ${seatNum === 1 ? 'selected' : ''}>东起</option>
+                    <option value="2" ${seatNum === 2 ? 'selected' : ''}>南起</option>
+                    <option value="3" ${seatNum === 3 ? 'selected' : ''}>西起</option>
+                    <option value="4" ${seatNum === 4 ? 'selected' : ''}>北起</option>
+                </select>
+                <input type="number" class="edit-player-score" data-index="${index}"
+                       value="${record.scores[index]}" required style="flex:1;">
+            </div>
         `;
         container.appendChild(div);
     });
@@ -2651,10 +2675,20 @@ function saveEditedRecord(e) {
     const editContainer = document.getElementById('edit-players-container');
     const playerSelects = editContainer.querySelectorAll('.edit-player-select');
     const scoreInputs = editContainer.querySelectorAll('.edit-player-score');
-    
+    const seatSelects = editContainer.querySelectorAll('.edit-player-seat');
+    const newSeats = [];
+
     for (let i = 0; i < playerSelects.length; i++) {
         newPlayers.push(playerSelects[i].value);
         newScores.push(parseInt(scoreInputs[i].value));
+        newSeats.push(seatSelects[i] && seatSelects[i].value ? Number(seatSelects[i].value) : null);
+    }
+
+    // 座位不能重复（留空不算）
+    const usedSeats = newSeats.filter(v => v !== null);
+    if (new Set(usedSeats).size !== usedSeats.length) {
+        alert('同一局里座位不能重复，请检查东南西北');
+        return;
     }
     
     if (new Set(newPlayers).size !== 4) {
@@ -2674,6 +2708,7 @@ function saveEditedRecord(e) {
     record.notes = document.getElementById('edit-game-notes').value;
     record.players = newPlayers;
     record.scores = newScores;
+    record.seats = newSeats;
     const editPhase = document.getElementById('edit-game-phase');
     if (editPhase && document.getElementById('edit-game-phase-group').style.display !== 'none') {
         record.phaseId = editPhase.value || null;
@@ -4621,6 +4656,12 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
             }
         }
 
+        // 座位显示名
+        function seatLabel(n) {
+            const map = { 1: '东起', 2: '南起', 3: '西起', 4: '北起' };
+            return map[Number(n)] || '-';
+        }
+
         // 切到指定页签
         function switchTab(tabId) {
             const btn = document.querySelector('.tab[data-tab="' + tabId + '"]');
@@ -5469,14 +5510,33 @@ function addYakumanRecord(playerName) {
 
             const root = document.getElementById('print-root');
             root.innerHTML = pages.join('');
-            window.onafterprint = function () { root.innerHTML = ''; };
+
+            // 先切到打印模式（屏幕上也只显示战报），再调打印，避免部分平板“存 PDF 空白”
+            document.body.classList.add('print-mode');
+            const exitBtn = document.getElementById('report-exit');
+            if (exitBtn) exitBtn.style.display = 'block';
+
+            const cleanup = function () {
+                document.body.classList.remove('print-mode');
+                root.innerHTML = '';
+                if (exitBtn) exitBtn.style.display = 'none';
+            };
+            if (exitBtn) exitBtn.onclick = cleanup;
+            window.onafterprint = cleanup;
+
             setTimeout(function () {
                 try {
                     if (window.print) window.print();
                 } catch (e) {
                     alert('无法调用打印：' + e.message);
+                    cleanup();
                 }
-            }, 200);
+            }, 300);
+
+            // 兜底：浏览器不触发 afterprint 时，60 秒后自动恢复
+            setTimeout(function () {
+                if (document.body.classList.contains('print-mode')) cleanup();
+            }, 60000);
         }
 
         // 数据体检：列出问题，并可直接点「修改」打开对局编辑
