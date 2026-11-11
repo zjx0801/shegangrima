@@ -1263,13 +1263,13 @@ table th {
             const d = date || new Date();
             const pad = n => String(n).padStart(2, '0');
             return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
 
         // HTML 转义：所有用户文本拼进 innerHTML 前都要过一遍
         function escapeHtml(v) {
             return String(v === null || v === undefined ? '' : v).replace(/[&<>"']/g, c => (
                 { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
             ));
-        }
         }
 
         // 玩家名单 - 从localStorage加载或使用默认值
@@ -2440,12 +2440,14 @@ function calculatePlayerTitles(stats) {
             return rows;
         }
 
-        // 返回 { 玩家名: ['赛季冠军'] }
+        // 返回 { 玩家名: ['2026春季赛冠军'] }（称号带赛季名）
         function seasonTitlesFor(seasonId) {
+            const season = seasons[seasonId];
+            const prefix = season && season.name ? season.name : '赛季';
             const map = {};
             calculateSeasonRanking(seasonId, 5).forEach((row, idx) => {
-                const label = idx === 0 ? '赛季冠军' : idx === 1 ? '赛季亚军' : idx === 2 ? '赛季季军' : null;
-                if (label) map[row.name] = (map[row.name] || []).concat(label);
+                const label = idx === 0 ? '冠军' : idx === 1 ? '亚军' : idx === 2 ? '季军' : null;
+                if (label) map[row.name] = (map[row.name] || []).concat(prefix + label);
             });
             return map;
         }
@@ -2462,8 +2464,9 @@ function updatePlayerCards() {
     const playersStats = document.getElementById('players-stats');
     playersStats.innerHTML = '';
     
-    const seasonFilter = document.getElementById('player-season-filter').value;
-    
+    // 下拉为空时按“全部赛季”处理，避免整页空白
+    const seasonFilter = document.getElementById('player-season-filter').value || 'all';
+
     // 收集所有玩家的统计数据和总积分
     const playerStatsArray = visiblePlayers().map(player => {
         let playerRecords = getPlayerRecords(player);
@@ -2477,16 +2480,23 @@ function updatePlayerCards() {
         return { player, stats };
     });
     
-    // 按总积分降序排序
-    playerStatsArray.sort((a, b) => b.stats.totalPoints - a.stats.totalPoints);
-    
-    const seasonTitleMap = seasonTitlesFor(activeSeasonId());
+    // 没打过的人不显示在玩家统计里（仍在玩家管理/赛季名单中）
+    const playedStats = playerStatsArray.filter(item => item.stats.totalGames > 0);
 
+    if (!playedStats.length) {
+        playersStats.innerHTML = '<p style="color:#888;">当前筛选下还没有对局记录</p>';
+        return;
+    }
+
+    // 按总积分降序排序
+    playedStats.sort((a, b) => b.stats.totalPoints - a.stats.totalPoints);
+    playerStatsArray.length = 0;
+    Array.prototype.push.apply(playerStatsArray, playedStats);
+    
     // 显示排序后的玩家卡片
     playerStatsArray.forEach(item => {
         const { player, stats } = item;
-        const extraTitles = (seasonTitleMap[player] || []).concat(achievementTitles(player));
-        const playerTitles = extraTitles.concat(calculatePlayerTitles(stats));
+        const playerTitles = achievementTitles(player).concat(calculatePlayerTitles(stats));
         
         const playerCard = document.createElement('div');
         playerCard.className = 'player-card';
@@ -2583,10 +2593,21 @@ playerCard.innerHTML = `
     const stats = calculatePlayerStats(playerName, playerRecords);
     const opponentStats = stats.opponentStats; // 使用新的详细对阵统计
     const playerTitles = calculatePlayerTitles(stats);
+
+    // 赛季称号：只在分析页与对应赛季卡片显示
+    const seasonTitleList = [];
+    if (seasonFilter && seasonFilter !== 'all') {
+        (seasonTitlesFor(seasonFilter)[playerName] || []).forEach(t => seasonTitleList.push(t));
+    } else {
+        Object.keys(seasons).forEach(sid => {
+            (seasonTitlesFor(sid)[playerName] || []).forEach(t => seasonTitleList.push(t));
+        });
+    }
+    const analysisTitles = seasonTitleList.concat(playerTitles);
     
     let analysisHTML = `
         <h3>${playerName} 的详细数据 
-            ${playerTitles.map(title => `<span class="title-badge">${title}</span>`).join('')}
+            ${analysisTitles.map(title => `<span class="title-badge">${title}</span>`).join('')}
         </h3>
         <div class="stats-grid">
             <div class="stat-card">
@@ -3556,6 +3577,10 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                 const playerCount = season.players.length;
                 const gameCount = gameRecords.filter(record => record.seasonId === season.id).length;
                 const seasonRanking = calculateSeasonRanking(season.id, 5);
+                const championHtml = seasonRanking.length
+                    ? '<p><strong>赛季称号:</strong> <span class="title-badge">' +
+                      escapeHtml(season.name) + '冠军 · ' + escapeHtml(seasonRanking[0].name) + '</span></p>'
+                    : '';
                 const rankingHtml = seasonRanking.length
                     ? '<p><strong>赛季前三:</strong> ' + seasonRanking.slice(0, 3).map((r, i) =>
                         ['冠军', '亚军', '季军'][i] + ' ' + escapeHtml(r.name) + '（' + r.points.toFixed(1) + '）'
@@ -3568,6 +3593,7 @@ if (stats.averageRawScore > highestAvgRawScore.value) {
                     <p><strong>玩家:</strong> ${playerCount}人</p>
                     <p><strong>对局数:</strong> ${gameCount}局</p>
                     <p><strong>头名赏:</strong> ${season.firstPrize || 0} 分</p>
+                    ${championHtml}
                     ${rankingHtml}
                     <div class="btn-group">
                         <button class="btn-success set-active-season" data-id="${season.id}">设为活跃</button>
