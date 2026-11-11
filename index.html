@@ -2173,7 +2173,7 @@ function renderYakumanStats(playerName) {
 
     // 录入表单
     const formHTML = `
-        <div style="margin-top:15px; padding:15px; background:#fafafa; border-radius:8px;">
+        <div class="export-omit" style="margin-top:15px; padding:15px; background:#fafafa; border-radius:8px;">
             <label style="font-weight:bold;">记录新役满</label>
             <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
                 <select id="new-yakuman-select" class="yakuman-input" style="flex:1; min-width:150px;">
@@ -3820,11 +3820,11 @@ function renderSeasonSeatSummary() {
                 }).join('') + '</tr>'
             ).join('');
 
-            return '<h3>全员对战矩阵</h3>' +
+            return '<div class="export-omit"><h3>全员对战矩阵</h3>' +
                 '<p style="color:#888; font-size:0.85rem;">行玩家 vs 列玩家，单元格是胜率（名次更靠前算胜）与交手局数；' +
                 '绿色 ≥60%，红色 ≤40%。</p>' +
                 '<div style="overflow-x:auto;"><table style="font-size:0.8rem;">' +
-                head + body + '</table></div>';
+                head + body + '</table></div></div>';
         }
 
 function renderSeatTable(seatStats, highlight) {
@@ -3853,10 +3853,10 @@ function renderSeatStats(seatStats) {
     const rows = seatStats || [];
     const used = rows.filter(r => r.games > 0);
     if (!used.length) {
-        return '<h3>座位统计</h3><p style="color:#888;">暂无座位数据。录入对局时填写“起家”后，' +
-            '这里会统计每个座位的局数、一二三四位率与前二率。</p>';
+        return '<div class="export-omit"><h3>座位统计</h3><p style="color:#888;">暂无座位数据。' +
+            '录入对局时填写“起家”后，这里会统计每个座位的局数、一二三四位率与前二率。</p></div>';
     }
-    return '<h3>座位统计</h3>' + renderSeatTable(rows);
+    return '<div class="export-omit"><h3>座位统计</h3>' + renderSeatTable(rows) + '</div>';
 }
 
         // Elo：起始 70，100 封顶，越高越难涨（非零和）
@@ -5691,7 +5691,10 @@ function exportPlayerCard(playerName) {
     html2canvas(playerCard, {
         backgroundColor: '#ecf0f1',
         scale: 2,
-        useCORS: true
+        useCORS: true,
+        onclone: function (doc) {
+            doc.querySelectorAll('details').forEach(el => el.remove());
+        }
     }).then(canvas => {
         const link = document.createElement('a');
         link.download = `日麻战绩_${playerName}_${new Date().toISOString().slice(0,10)}.png`;
@@ -5725,6 +5728,10 @@ function exportAnalysisReport(playerName) {
     // 移除不需要导出的按钮
     const buttons = contentClone.querySelectorAll('button');
     buttons.forEach(btn => btn.remove());
+
+    // 精简：对战矩阵、座位统计这类宽表格不放进分享图
+    contentClone.querySelectorAll('.export-omit').forEach(el => el.remove());
+    contentClone.querySelectorAll('details').forEach(el => el.remove());
     
     // 添加标题和时间
     const title = document.createElement('h2');
@@ -5854,6 +5861,9 @@ function exportAllPlayersStats() {
         // 移除导出按钮
         const exportButtons = statsClone.querySelectorAll('.export-card-btn');
         exportButtons.forEach(btn => btn.remove());
+
+        // 移除座位明细（<details> 里的宽表格会把卡片撑乱）
+        statsClone.querySelectorAll('details').forEach(el => el.remove());
         
         // 调整布局为适合导出的格式
         statsClone.style.display = 'grid';
@@ -5862,6 +5872,15 @@ function exportAllPlayersStats() {
         
         tempContainer.appendChild(title);
         tempContainer.appendChild(date);
+
+        // 赛季总结（冠军/亚军/季军/最高打点）放在卡片前面
+        const summaryEl = document.getElementById('season-summary');
+        if (summaryEl) {
+            const summaryClone = summaryEl.cloneNode(true);
+            summaryClone.style.marginBottom = '20px';
+            tempContainer.appendChild(summaryClone);
+        }
+
         tempContainer.appendChild(statsClone);
         document.body.appendChild(tempContainer);
         
